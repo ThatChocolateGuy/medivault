@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Camera } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Input } from '../components/common/Input';

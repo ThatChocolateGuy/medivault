@@ -19,10 +19,10 @@ export async function searchItems(query: string): Promise<InventoryItem[]> {
     .filter(
       (item) =>
         item.name.toLowerCase().includes(lowerQuery) ||
-        item.barcode?.toLowerCase().includes(lowerQuery) ||
+        (item.barcode?.toLowerCase().includes(lowerQuery) ?? false) ||
         item.category.toLowerCase().includes(lowerQuery) ||
         item.location.toLowerCase().includes(lowerQuery) ||
-        item.notes?.toLowerCase().includes(lowerQuery)
+        (item.notes?.toLowerCase().includes(lowerQuery) ?? false)
     )
     .toArray();
 }
@@ -36,10 +36,10 @@ export async function createItem(
     createdAt: now,
     updatedAt: now,
     syncStatus: 'pending',
-  });
+  }) as number;
 
   // Add to sync queue
-  await addToSyncQueue('item', id, 'create', item);
+  await addToSyncQueue('item', id, 'create', item as unknown as Record<string, unknown>);
 
   return id;
 }
@@ -55,7 +55,7 @@ export async function updateItem(
   });
 
   // Add to sync queue
-  await addToSyncQueue('item', id, 'update', updates);
+  await addToSyncQueue('item', id, 'update', updates as unknown as Record<string, unknown>);
 }
 
 export async function deleteItem(id: number): Promise<void> {

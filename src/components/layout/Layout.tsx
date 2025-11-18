@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { Header } from './Header';
 import { BottomNav, type NavItem } from './BottomNav';
 import { cn } from '../../lib/utils';

@@ -10,7 +10,7 @@ interface SearchBarProps {
 
 export function SearchBar({ onSearch, placeholder = 'Search...', className }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
