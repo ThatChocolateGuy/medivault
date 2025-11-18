@@ -1,35 +1,68 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { type NavItem } from './components/layout/BottomNav';
+import { HomePage } from './pages/HomePage';
+import { AddItemPage } from './pages/AddItemPage';
+import { ScannerPage } from './pages/ScannerPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { initializeDatabase, type InventoryItem } from './lib/db';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState<NavItem>('home');
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize database on mount
+  useEffect(() => {
+    initializeDatabase()
+      .then(() => {
+        setInitialized(true);
+        console.log('Database initialized successfully');
+      })
+      .catch((error) => {
+        console.error('Failed to initialize database:', error);
+        alert('Failed to initialize app. Please refresh the page.');
+      });
+  }, []);
+
+  const handleNavigate = (item: NavItem) => {
+    setCurrentPage(item);
+    setSelectedItem(null);
+  };
+
+  const handleItemClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    // TODO: Navigate to item detail page
+    console.log('Item clicked:', item);
+  };
+
+  const handleAddItemSuccess = () => {
+    // Refresh home page after adding item
+    setCurrentPage('home');
+  };
+
+  if (!initialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      {currentPage === 'home' && (
+        <HomePage onNavigate={handleNavigate} onItemClick={handleItemClick} />
+      )}
+      {currentPage === 'scan' && <ScannerPage onNavigate={handleNavigate} />}
+      {currentPage === 'add' && (
+        <AddItemPage onNavigate={handleNavigate} onSuccess={handleAddItemSuccess} />
+      )}
+      {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
     </>
-  )
+  );
 }
 
-export default App
+export default App;
