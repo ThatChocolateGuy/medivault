@@ -8,7 +8,6 @@ import { initializeDatabase, type InventoryItem } from './lib/db';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<NavItem>('home');
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   // Initialize database on mount
@@ -26,11 +25,9 @@ function App() {
 
   const handleNavigate = (item: NavItem) => {
     setCurrentPage(item);
-    setSelectedItem(null);
   };
 
   const handleItemClick = (item: InventoryItem) => {
-    setSelectedItem(item);
     // TODO: Navigate to item detail page
     console.log('Item clicked:', item);
   };

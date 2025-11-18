@@ -61,28 +61,10 @@ export async function compressImage(file: File, maxWidth: number = 800): Promise
 // Validate barcode formats
 export function isValidBarcode(barcode: string): boolean {
   // Common barcode formats: EAN-13, EAN-8, UPC-A, UPC-E, Code 128
-  return /^[\d]{8,13}$/.test(barcode) || /^[\dA-Z\-\.\ \$\/\+\%]{1,}$/.test(barcode);
+  return /^[\d]{8,13}$/.test(barcode) || /^[\dA-Z\-.$ /+%]{1,}$/.test(barcode);
 }
 
 // Generate unique ID for offline operations
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// Debounce function
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-
-  return function (this: any, ...args: Parameters<T>) {
-    const later = () => {
-      timeout = null;
-      func.apply(this, args);
-    };
-
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
 }

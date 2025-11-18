@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react';
-import { useState, useCallback } from 'react';
-import { cn, debounce } from '../../lib/utils';
+import { useState, useRef, useEffect } from 'react';
+import { cn } from '../../lib/utils';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -10,18 +10,29 @@ interface SearchBarProps {
 
 export function SearchBar({ onSearch, placeholder = 'Search...', className }: SearchBarProps) {
   const [query, setQuery] = useState('');
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debounced search to avoid too many calls
-  const debouncedSearch = useCallback(
-    debounce((value: string) => {
-      onSearch(value);
-    }, 300),
-    [onSearch]
-  );
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleChange = (value: string) => {
     setQuery(value);
-    debouncedSearch(value);
+
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout for debounced search
+    timeoutRef.current = setTimeout(() => {
+      onSearch(value);
+    }, 300);
   };
 
   const handleClear = () => {

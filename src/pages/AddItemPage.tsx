@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { Camera, Package } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';

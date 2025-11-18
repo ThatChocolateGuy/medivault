@@ -126,7 +126,7 @@ async function addToSyncQueue(
   entityType: 'item' | 'category' | 'location',
   entityId: number,
   operation: 'create' | 'update' | 'delete',
-  data: any
+  data: Record<string, unknown>
 ): Promise<void> {
   await db.syncQueue.add({
     entityType,
