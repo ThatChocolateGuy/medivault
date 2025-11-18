@@ -1,9 +1,8 @@
-import { LucideIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 import { Button } from './Button';
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
   action?: {
