@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply m-0 min-h-screen bg-gray-50 text-gray-900;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  /* Mobile-first touch targets (minimum 48x48px) */
+  .btn {
+    @apply min-h-[48px] min-w-[48px] flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-900 active:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed;
+  }
+
+  .input {
+    @apply min-h-[48px] w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+
+  /* Safe area for mobile devices with notches */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
