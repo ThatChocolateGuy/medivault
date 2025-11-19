@@ -1,9 +1,8 @@
-import { test, expect, devices } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.describe('Mobile Responsiveness', () => {
-  test.use({ ...devices['iPhone 12'] });
-
   test('should display correctly on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
 
     // Check viewport dimensions
@@ -15,6 +14,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('should have touch-friendly navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
 
     // Check bottom navigation is visible
@@ -31,6 +31,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('should display add form correctly on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     await page.getByRole('button', { name: 'Add' }).click();
 
@@ -42,6 +43,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('should show bottom navigation on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
 
     // Bottom nav should be fixed at bottom
@@ -53,6 +55,7 @@ test.describe('Mobile Responsiveness', () => {
   });
 
   test('search bar should work on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
 
     const searchInput = page.getByPlaceholder('Search items...');
@@ -68,9 +71,8 @@ test.describe('Mobile Responsiveness', () => {
 });
 
 test.describe('Tablet Responsiveness', () => {
-  test.use({ ...devices['iPad Pro'] });
-
   test('should display correctly on tablet', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1366 }); // iPad Pro size
     await page.goto('/');
 
     await page.screenshot({ path: 'tests/screenshots/05-tablet-home.png', fullPage: true });
@@ -80,6 +82,7 @@ test.describe('Tablet Responsiveness', () => {
   });
 
   test('should utilize tablet space efficiently', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1366 });
     await page.goto('/');
 
     // Add some items first
