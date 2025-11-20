@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Git repository (already initialized)
-- Vercel account (https://vercel.com)
+- Vercel account (<https://vercel.com>)
 - Node.js 20.19+ or 22.12+ (optional, Vercel uses its own)
 
 ## Quick Deploy to Vercel
@@ -11,16 +11,19 @@
 ### Option 1: Vercel CLI (Recommended)
 
 1. Install Vercel CLI globally:
+
 ```bash
 npm install -g vercel
 ```
 
 2. Login to Vercel:
+
 ```bash
 vercel login
 ```
 
 3. Deploy from the project directory:
+
 ```bash
 cd medical-inventory-tracker
 vercel
@@ -39,12 +42,13 @@ vercel
 ### Option 2: Vercel Dashboard (Easy)
 
 1. Push your code to GitHub:
+
 ```bash
 git remote add origin https://github.com/YOUR_USERNAME/medical-inventory-tracker.git
 git push -u origin main
 ```
 
-2. Go to https://vercel.com/new
+2. Go to <https://vercel.com/new>
 
 3. Import your GitHub repository
 
@@ -72,11 +76,13 @@ git push -u origin main
 ### 2. Install as PWA
 
 On mobile (Chrome/Edge):
+
 - Visit the site
 - Tap the "Add to Home Screen" prompt
 - Or: Menu → "Add to Home Screen" / "Install App"
 
 On desktop (Chrome/Edge):
+
 - Visit the site
 - Click the install icon in the address bar
 - Or: Menu → "Install Medical Inventory Tracker"
@@ -95,7 +101,7 @@ On desktop (Chrome/Edge):
 Generate proper app icons:
 
 1. Create a 512x512px icon (PNG)
-2. Use https://www.pwabuilder.com/imageGenerator to generate all sizes
+2. Use <https://www.pwabuilder.com/imageGenerator> to generate all sizes
 3. Download the generated icons
 4. Place them in the `public/` directory:
    - `pwa-192x192.png`
@@ -103,6 +109,7 @@ Generate proper app icons:
    - `apple-touch-icon.png`
    - `favicon.ico`
 5. Commit and redeploy:
+
 ```bash
 git add public/
 git commit -m "Add PWA icons"
@@ -119,11 +126,13 @@ VITE_GOOGLE_API_KEY=your-api-key
 ```
 
 Add these in:
+
 - Vercel Dashboard → Project → Settings → Environment Variables
 
 ## Continuous Deployment
 
 Vercel automatically:
+
 - Deploys on every push to `main` branch
 - Creates preview deployments for pull requests
 - Builds with production optimizations
@@ -166,11 +175,13 @@ npm run lint
 ## Performance
 
 Current bundle sizes (production):
+
 - Main JS: ~466KB (144KB gzipped)
 - CSS: ~17KB (4KB gzipped)
 - Total first load: ~148KB gzipped
 
 Performance optimizations already applied:
+
 - Code splitting
 - Tree shaking
 - Minification
@@ -181,6 +192,7 @@ Performance optimizations already applied:
 ## Monitoring
 
 Use Vercel Analytics (optional, paid feature):
+
 1. Enable in Vercel Dashboard
 2. Get insights on:
    - Page views
@@ -197,8 +209,8 @@ Use Vercel Analytics (optional, paid feature):
 
 ## Need Help?
 
-- Vercel Docs: https://vercel.com/docs
-- Vite Docs: https://vitejs.dev
-- PWA Docs: https://vite-pwa-org.netlify.app/
+- Vercel Docs: <https://vercel.com/docs>
+- Vite Docs: <https://vitejs.dev>
+- PWA Docs: <https://vite-pwa-org.netlify.app/>
 
 Happy deploying! 🚀
