@@ -9,6 +9,7 @@ interface LayoutProps {
   activeNav: NavItem;
   onNavigate: (item: NavItem) => void;
   onSearchClick?: () => void;
+  onBackClick?: () => void;
   showNotifications?: boolean;
   notificationCount?: number;
   className?: string;
@@ -20,6 +21,7 @@ export function Layout({
   activeNav,
   onNavigate,
   onSearchClick,
+  onBackClick,
   showNotifications,
   notificationCount,
   className,
@@ -29,6 +31,7 @@ export function Layout({
       <Header
         title={title}
         onSearchClick={onSearchClick}
+        onBackClick={onBackClick}
         showNotifications={showNotifications}
         notificationCount={notificationCount}
       />

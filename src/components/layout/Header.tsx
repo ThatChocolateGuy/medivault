@@ -1,10 +1,11 @@
-import { Menu, Search, Bell } from 'lucide-react';
+import { Menu, Search, Bell, ChevronLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface HeaderProps {
   title: string;
   onMenuClick?: () => void;
   onSearchClick?: () => void;
+  onBackClick?: () => void;
   showNotifications?: boolean;
   notificationCount?: number;
   className?: string;
@@ -14,6 +15,7 @@ export function Header({
   title,
   onMenuClick,
   onSearchClick,
+  onBackClick,
   showNotifications = false,
   notificationCount = 0,
   className,
@@ -28,7 +30,16 @@ export function Header({
       <div className="flex items-center justify-between h-14 px-4">
         {/* Left section */}
         <div className="flex items-center gap-2">
-          {onMenuClick && (
+          {onBackClick && (
+            <button
+              onClick={onBackClick}
+              className="p-2 -ml-2 rounded-lg active:bg-gray-100"
+              aria-label="Back"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </button>
+          )}
+          {onMenuClick && !onBackClick && (
             <button
               onClick={onMenuClick}
               className="p-2 -ml-2 rounded-lg active:bg-gray-100"

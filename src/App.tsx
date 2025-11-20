@@ -4,15 +4,18 @@ import { HomePage } from './pages/HomePage';
 import { AddItemPage } from './pages/AddItemPage';
 import { ScannerPage } from './pages/ScannerPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { initializeDatabase, type InventoryItem } from './lib/db';
+import { ItemDetailPage } from './pages/ItemDetailPage';
+import { initializeDatabase, deduplicateDatabase, type InventoryItem } from './lib/db';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<NavItem>('home');
   const [initialized, setInitialized] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
 
   // Initialize database on mount
   useEffect(() => {
     initializeDatabase()
+      .then(() => deduplicateDatabase())
       .then(() => {
         setInitialized(true);
         console.log('Database initialized successfully');
@@ -25,11 +28,17 @@ function App() {
 
   const handleNavigate = (item: NavItem) => {
     setCurrentPage(item);
+    setSelectedItemId(null); // Clear selected item when navigating
   };
 
   const handleItemClick = (item: InventoryItem) => {
-    // TODO: Navigate to item detail page
-    console.log('Item clicked:', item);
+    if (item.id) {
+      setSelectedItemId(item.id);
+    }
+  };
+
+  const handleBackFromDetail = () => {
+    setSelectedItemId(null);
   };
 
   const handleAddItemSuccess = () => {
@@ -45,6 +54,17 @@ function App() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show item detail page if an item is selected
+  if (selectedItemId !== null) {
+    return (
+      <ItemDetailPage
+        itemId={selectedItemId}
+        onNavigate={handleNavigate}
+        onBack={handleBackFromDetail}
+      />
     );
   }
 
