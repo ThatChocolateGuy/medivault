@@ -14,6 +14,12 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const detectedRef = useRef(false);
   const quaggaStarted = useRef(false);
 
+  // Multi-read verification state
+  const detectionHistoryRef = useRef<Array<{ code: string; quality: number; timestamp: number }>>([]);
+  const REQUIRED_MATCHES = 3; // Require 3 consecutive matches
+  const QUALITY_THRESHOLD = 0.75; // Minimum quality score (0-1)
+  const DETECTION_WINDOW = 2000; // 2 second window for matches
+
   useEffect(() => {
     // Prevent double initialization
     if (quaggaStarted.current) return;
@@ -65,13 +71,53 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           }
         );
 
-        // Handle barcode detection
+        // Handle barcode detection with multi-read verification
         Quagga.onDetected((result) => {
-          if (detectedRef.current) return; // Prevent multiple detections
+          if (detectedRef.current) return; // Already detected successfully
 
           const code = result.codeResult.code;
-          if (code) {
+          if (!code) return;
+
+          // Calculate quality score from Quagga's error metrics
+          // Lower error = higher quality (invert and normalize to 0-1 scale)
+          const errors = result.codeResult.decodedCodes
+            .filter((c: any) => c.error !== undefined)
+            .map((c: any) => c.error);
+          const avgError = errors.length > 0
+            ? errors.reduce((sum: number, err: number) => sum + err, 0) / errors.length
+            : 1.0;
+          const quality = Math.max(0, 1 - avgError);
+
+          // Log detection for debugging
+          console.log(`Detected: ${code} (quality: ${quality.toFixed(2)})`);
+
+          // Filter out low-quality reads
+          if (quality < QUALITY_THRESHOLD) {
+            console.log(`Rejected: quality ${quality.toFixed(2)} below threshold ${QUALITY_THRESHOLD}`);
+            return;
+          }
+
+          // Add to detection history
+          const now = Date.now();
+          detectionHistoryRef.current.push({ code, quality, timestamp: now });
+
+          // Remove old detections outside the time window
+          detectionHistoryRef.current = detectionHistoryRef.current.filter(
+            (d) => now - d.timestamp < DETECTION_WINDOW
+          );
+
+          // Check for consecutive matches
+          const recentDetections = detectionHistoryRef.current.slice(-REQUIRED_MATCHES);
+          const allMatch = recentDetections.length === REQUIRED_MATCHES &&
+            recentDetections.every((d) => d.code === code);
+
+          if (allMatch) {
+            // We have enough consecutive high-quality matches!
             detectedRef.current = true;
+
+            // Calculate average quality of matches
+            const avgQuality = recentDetections.reduce((sum, d) => sum + d.quality, 0) / recentDetections.length;
+            console.log(`✅ Confirmed: ${code} (avg quality: ${avgQuality.toFixed(2)}, ${REQUIRED_MATCHES} matches)`);
 
             // Visual feedback
             if (scannerRef.current) {
@@ -88,6 +134,10 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             setTimeout(() => {
               onDetected(code);
             }, 300);
+          } else {
+            // Not enough matches yet - give subtle feedback
+            const matchCount = recentDetections.filter((d) => d.code === code).length;
+            console.log(`Progress: ${matchCount}/${REQUIRED_MATCHES} matches for ${code}`);
           }
         });
       } catch (err) {

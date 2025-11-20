@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medical Inventory - Test Barcodes</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .instructions {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 30px;
+    }
+
+    .instructions h2 {
+      color: #1e40af;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .instructions ol {
+      margin-left: 20px;
+      color: #374151;
+    }
+
+    .instructions li {
+      margin: 5px 0;
+    }
+
+    .barcode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .barcode-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+      page-break-inside: avoid;
+    }
+
+    .barcode-card.low-stock {
+      border: 2px solid #fbbf24;
+      background: #fffbeb;
+    }
+
+    .barcode-card.critical-stock {
+      border: 2px solid #ef4444;
+      background: #fef2f2;
+    }
+
+    .item-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .item-details {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 15px;
+    }
+
+    .barcode-image {
+      margin: 15px 0;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    .barcode-image img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .barcode-text {
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: bold;
+      color: #374151;
+      margin-top: 10px;
+      padding: 8px;
+      background: #f9fafb;
+      border-radius: 4px;
+    }
+
+    .format-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #e0e7ff;
+      color: #3730a3;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .stock-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 8px;
+      margin-left: 8px;
+    }
+
+    .stock-badge.low {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .stock-badge.critical {
+      background: #fecaca;
+      color: #991b1b;
+    }
+
+    .unknown-section {
+      margin-top: 40px;
+    }
+
+    .section-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .instructions {
+        display: none;
+      }
+
+      .barcode-card {
+        box-shadow: none;
+        border: 1px solid #e5e7eb;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .barcode-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📦 Medical Inventory Test Barcodes</h1>
+    <p class="subtitle">Scan these barcodes to test the scanner functionality</p>
+  </div>
+
+  <div class="instructions">
+    <h2>🎯 How to Use These Barcodes</h2>
+    <ol>
+      <li><strong>Open the app</strong> at <code>http://localhost:5177/</code> in your browser</li>
+      <li><strong>Seed the test data</strong> using the browser console script (see seed-browser-console.js)</li>
+      <li><strong>Navigate to the Scanner</strong> page by clicking the "Scan" button</li>
+      <li><strong>Click "Start Scanning"</strong> to activate your camera</li>
+      <li><strong>Scan these barcodes</strong> by holding them in front of your camera:
+        <ul>
+          <li>Display this page on a second screen, or</li>
+          <li>Print this page and scan the printed barcodes</li>
+        </ul>
+      </li>
+      <li><strong>Verify results</strong>:
+        <ul>
+          <li>Items with <span style="background: #fef3c7; padding: 2px 6px; border-radius: 4px;">yellow border</span> are LOW STOCK</li>
+          <li>Items with <span style="background: #fef2f2; padding: 2px 6px; border-radius: 4px;">red border</span> are CRITICAL LOW STOCK</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <div class="section-title">✅ Items in Inventory (Should Find)</div>
+
+  <div class="barcode-grid">
+    <!-- Aspirin -->
+    <div class="barcode-card">
+      <div class="item-name">Aspirin 500mg</div>
+      <div class="item-details">Medications • Shelf A • Qty: 100</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=5901234123457&code=EAN13&translate-esc=on&dpi=96" alt="Aspirin barcode">
+      </div>
+      <div class="barcode-text">5901234123457</div>
+      <span class="format-badge">EAN-13</span>
+    </div>
+
+    <!-- Bandages -->
+    <div class="barcode-card">
+      <div class="item-name">Bandages Box</div>
+      <div class="item-details">First Aid • Shelf B • Qty: 50</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=5901234567890&code=EAN13&translate-esc=on&dpi=96" alt="Bandages barcode">
+      </div>
+      <div class="barcode-text">5901234567890</div>
+      <span class="format-badge">EAN-13</span>
+    </div>
+
+    <!-- Surgical Gloves - LOW STOCK -->
+    <div class="barcode-card low-stock">
+      <div class="item-name">Surgical Gloves</div>
+      <div class="item-details">Supplies • Storage Room • Qty: 15 / Min: 25</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=5901234111111&code=EAN13&translate-esc=on&dpi=96" alt="Surgical Gloves barcode">
+      </div>
+      <div class="barcode-text">5901234111111</div>
+      <span class="format-badge">EAN-13</span>
+      <span class="stock-badge low">⚠️ LOW STOCK</span>
+    </div>
+
+    <!-- Antibiotic Cream -->
+    <div class="barcode-card">
+      <div class="item-name">Antibiotic Cream</div>
+      <div class="item-details">Medications • Refrigerator • Qty: 30</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=MED-001-2024&code=Code128&translate-esc=on&dpi=96" alt="Antibiotic Cream barcode">
+      </div>
+      <div class="barcode-text">MED-001-2024</div>
+      <span class="format-badge">Code 128</span>
+    </div>
+
+    <!-- Digital Thermometer -->
+    <div class="barcode-card">
+      <div class="item-name">Digital Thermometer</div>
+      <div class="item-details">Equipment • Shelf A • Qty: 12</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=EQP-THERM-100&code=Code128&translate-esc=on&dpi=96" alt="Digital Thermometer barcode">
+      </div>
+      <div class="barcode-text">EQP-THERM-100</div>
+      <span class="format-badge">Code 128</span>
+    </div>
+
+    <!-- Hand Sanitizer -->
+    <div class="barcode-card">
+      <div class="item-name">Hand Sanitizer 500ml</div>
+      <div class="item-details">Supplies • Shelf B • Qty: 45</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=012345678905&code=UPCA&translate-esc=on&dpi=96" alt="Hand Sanitizer barcode">
+      </div>
+      <div class="barcode-text">012345678905</div>
+      <span class="format-badge">UPC-A</span>
+    </div>
+
+    <!-- Ibuprofen - LOW STOCK -->
+    <div class="barcode-card low-stock">
+      <div class="item-name">Ibuprofen 200mg</div>
+      <div class="item-details">Medications • Shelf A • Qty: 8 / Min: 20</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=036000291452&code=UPCA&translate-esc=on&dpi=96" alt="Ibuprofen barcode">
+      </div>
+      <div class="barcode-text">036000291452</div>
+      <span class="format-badge">UPC-A</span>
+      <span class="stock-badge low">⚠️ LOW STOCK</span>
+    </div>
+
+    <!-- Alcohol Swabs -->
+    <div class="barcode-card">
+      <div class="item-name">Alcohol Swabs</div>
+      <div class="item-details">Supplies • Storage Room • Qty: 200</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=96385074&code=EAN8&translate-esc=on&dpi=96" alt="Alcohol Swabs barcode">
+      </div>
+      <div class="barcode-text">96385074</div>
+      <span class="format-badge">EAN-8</span>
+    </div>
+
+    <!-- Gauze Pads -->
+    <div class="barcode-card">
+      <div class="item-name">Sterile Gauze Pads</div>
+      <div class="item-details">First Aid • Shelf B • Qty: 75</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=GAUZE-2024&code=Code39&translate-esc=on&dpi=96" alt="Gauze Pads barcode">
+      </div>
+      <div class="barcode-text">GAUZE-2024</div>
+      <span class="format-badge">Code 39</span>
+    </div>
+
+    <!-- N95 Masks - CRITICAL LOW -->
+    <div class="barcode-card critical-stock">
+      <div class="item-name">N95 Respirator Masks</div>
+      <div class="item-details">Supplies • Storage Room • Qty: 3 / Min: 50</div>
+      <div class="barcode-image">
+        <img src="https://barcode.tec-it.com/barcode.ashx?data=MASK-N95-500&code=Code39&translate-esc=on&dpi=96" alt="N95 Masks barcode">
+      </div>
+      <div class="barcode-text">MASK-N95-500</div>
+      <span class="format-badge">Code 39</span>
+      <span class="stock-badge critical">🚨 CRITICAL LOW</span>
+    </div>
+  </div>
+
+  <div class="unknown-section">
+    <div class="section-title">❌ Unknown Barcodes (Should NOT Find)</div>
+    <p style="color: #6b7280; margin-bottom: 20px; text-align: center;">
+      These barcodes should trigger "Item Not Found" flow and prompt you to add a new item
+    </p>
+
+    <div class="barcode-grid">
+      <!-- Unknown EAN-13 -->
+      <div class="barcode-card" style="border: 2px dashed #d1d5db;">
+        <div class="item-name">Unknown Item</div>
+        <div class="item-details">Not in inventory</div>
+        <div class="barcode-image">
+          <img src="https://barcode.tec-it.com/barcode.ashx?data=9999999999999&code=EAN13&translate-esc=on&dpi=96" alt="Unknown EAN-13 barcode">
+        </div>
+        <div class="barcode-text">9999999999999</div>
+        <span class="format-badge">EAN-13</span>
+      </div>
+
+      <!-- Unknown Code128 -->
+      <div class="barcode-card" style="border: 2px dashed #d1d5db;">
+        <div class="item-name">Unknown Item</div>
+        <div class="item-details">Not in inventory</div>
+        <div class="barcode-image">
+          <img src="https://barcode.tec-it.com/barcode.ashx?data=UNKNOWN-123&code=Code128&translate-esc=on&dpi=96" alt="Unknown Code128 barcode">
+        </div>
+        <div class="barcode-text">UNKNOWN-123</div>
+        <span class="format-badge">Code 128</span>
+      </div>
+
+      <!-- Unknown UPC-A -->
+      <div class="barcode-card" style="border: 2px dashed #d1d5db;">
+        <div class="item-name">Unknown Item</div>
+        <div class="item-details">Not in inventory</div>
+        <div class="barcode-image">
+          <img src="https://barcode.tec-it.com/barcode.ashx?data=999999999999&code=UPCA&translate-esc=on&dpi=96" alt="Unknown UPC-A barcode">
+        </div>
+        <div class="barcode-text">999999999999</div>
+        <span class="format-badge">UPC-A</span>
+      </div>
+
+      <!-- Unknown Code39 -->
+      <div class="barcode-card" style="border: 2px dashed #d1d5db;">
+        <div class="item-name">Unknown Item</div>
+        <div class="item-details">Not in inventory</div>
+        <div class="barcode-image">
+          <img src="https://barcode.tec-it.com/barcode.ashx?data=NOT-FOUND&code=Code39&translate-esc=on&dpi=96" alt="Unknown Code39 barcode">
+        </div>
+        <div class="barcode-text">NOT-FOUND</div>
+        <span class="format-badge">Code 39</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 40px; padding: 20px; color: #6b7280; font-size: 14px;">
+    <p>Generated for Medical Inventory Tracker • Scanner Testing</p>
+    <p style="margin-top: 8px;">Barcodes provided by <a href="https://barcode.tec-it.com" target="_blank" style="color: #2563eb;">TEC-IT Barcode Generator</a></p>
+  </div>
+</body>
+</html>
