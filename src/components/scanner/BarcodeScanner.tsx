@@ -10,13 +10,15 @@ interface BarcodeScannerProps {
 
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const detectedRef = useRef(false);
+  const initializingRef = useRef(false);
 
   useEffect(() => {
     const initScanner = async () => {
-      if (!scannerRef.current) return;
+      if (!scannerRef.current || initializingRef.current) return;
+
+      initializingRef.current = true;
 
       try {
         await Quagga.init(
@@ -56,7 +58,6 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               );
               return;
             }
-            setIsInitialized(true);
             Quagga.start();
           }
         );
@@ -96,11 +97,17 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
     // Cleanup
     return () => {
-      if (isInitialized) {
+      initializingRef.current = false;
+      try {
+        // Always attempt to stop Quagga on cleanup
+        // This handles cases where init started but didn't complete
         Quagga.stop();
+        Quagga.offDetected();
+      } catch (err) {
+        // Ignore errors if Quagga wasn't initialized
       }
     };
-  }, [onDetected, isInitialized]);
+  }, [onDetected]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
