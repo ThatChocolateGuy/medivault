@@ -12,22 +12,19 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const detectedRef = useRef(false);
-  const quaggaInitialized = useRef(false);
-  const initTimeoutRef = useRef<number | undefined>(undefined);
+  const quaggaStarted = useRef(false);
 
   useEffect(() => {
+    // Prevent double initialization
+    if (quaggaStarted.current) return;
+
     const initScanner = async () => {
-      // Prevent double initialization in React StrictMode
-      if (!scannerRef.current || quaggaInitialized.current) return;
+      if (!scannerRef.current) return;
 
-      quaggaInitialized.current = true;
+      quaggaStarted.current = true;
 
-      // Delay initialization slightly to ensure DOM is ready
-      initTimeoutRef.current = setTimeout(async () => {
-        if (!scannerRef.current) return;
-
-        try {
-          await Quagga.init(
+      try {
+        await Quagga.init(
           {
             inputStream: {
               type: 'LiveStream',
@@ -93,26 +90,20 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             }, 300);
           }
         });
-        } catch (err) {
-          console.error('Scanner initialization error:', err);
-          setError('Failed to initialize scanner. Please try again.');
-          quaggaInitialized.current = false; // Reset on error so user can retry
-        }
-      }, 100); // 100ms delay to ensure DOM is ready
+      } catch (err) {
+        console.error('Scanner initialization error:', err);
+        setError('Failed to initialize scanner. Please try again.');
+        quaggaStarted.current = false; // Reset on error so user can retry
+      }
     };
 
     initScanner();
 
     // Cleanup
     return () => {
-      // Clear the initialization timeout if component unmounts before init
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-
       try {
         // Stop Quagga if it was initialized
-        if (quaggaInitialized.current) {
+        if (quaggaStarted.current) {
           Quagga.stop();
           Quagga.offDetected();
         }
