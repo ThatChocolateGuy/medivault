@@ -62,4 +62,7 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    allowedHosts: ['.ngrok-free.dev', '.localtunnel.me', '.loca.lt'],
+  },
 });
