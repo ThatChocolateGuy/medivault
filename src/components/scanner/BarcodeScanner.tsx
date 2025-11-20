@@ -36,16 +36,17 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               type: 'LiveStream',
               target: scannerRef.current,
               constraints: {
-                width: { min: 640, ideal: 1280, max: 1920 },
-                height: { min: 480, ideal: 720, max: 1080 },
-                facingMode: 'environment', // Use back camera
-                aspectRatio: { min: 1, max: 2 },
+                width: { min: 640, ideal: 1920, max: 1920 },
+                height: { min: 480, ideal: 1080, max: 1080 },
+                facingMode: { exact: 'environment' }, // Use back camera (main camera preferred)
+                aspectRatio: 1.77778, // 16:9 for main camera
               },
             },
             locator: {
-              patchSize: 'medium',
-              halfSample: true,
+              patchSize: 'large',
+              halfSample: false, // Full quality processing for better accuracy
             },
+            frequency: 10, // Process 10 frames per second
             numOfWorkers: 2,
             decoder: {
               readers: [
@@ -181,7 +182,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       </div>
 
       {/* Scanner viewport */}
-      <div className="relative w-full h-full flex items-center justify-center">
+      <div className="relative w-full h-full flex items-center justify-center px-4">
         {error ? (
           <div className="px-6 text-center">
             <div className="mb-4 text-red-400 text-lg">{error}</div>
@@ -193,18 +194,33 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           <>
             <div
               ref={scannerRef}
-              className="relative w-full max-w-2xl aspect-video border-2 border-white/50 rounded-lg overflow-hidden"
-              style={{ maxHeight: '70vh' }}
+              className="relative w-full mx-auto"
+              style={{
+                maxWidth: '600px',
+                aspectRatio: '16/9',
+                maxHeight: 'calc(100vh - 200px)'
+              }}
             />
 
             {/* Scanning guide overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="relative w-full max-w-md aspect-video">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
+              <div
+                className="relative"
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  aspectRatio: '16/9'
+                }}
+              >
                 {/* Corner guides */}
-                <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-green-500" />
-                <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-green-500" />
-                <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-green-500" />
-                <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-green-500" />
+                <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-green-500" />
+                <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-green-500" />
+                <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-green-500" />
+                <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-green-500" />
+
+                {/* Center line guides */}
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500/30 transform -translate-y-1/2" />
+                <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500/30 transform -translate-x-1/2" />
               </div>
             </div>
           </>
