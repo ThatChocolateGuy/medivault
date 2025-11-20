@@ -19,7 +19,7 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'btn font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'btn flex items-center justify-center gap-2 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
     primary: 'bg-primary-600 text-white active:bg-primary-700 hover:bg-primary-700',
@@ -48,10 +48,10 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <span className="flex items-center justify-center gap-2">
+        <>
           <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
           Loading...
-        </span>
+        </>
       ) : (
         children
       )}

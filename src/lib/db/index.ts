@@ -79,34 +79,92 @@ export const db = new InventoryDatabase();
 
 // Initialize default data
 export async function initializeDatabase() {
-  // Check if already initialized
-  const settingsCount = await db.settings.count();
+  // Check if already initialized by looking at categories (more reliable than settings)
+  const categoriesCount = await db.categories.count();
 
-  if (settingsCount === 0) {
-    // Create default settings
-    await db.settings.add({
-      syncEnabled: false,
-      lowStockAlerts: true,
-    });
-
-    // Add default categories
+  if (categoriesCount === 0) {
+    // Add default categories only if they don't exist
     const defaultCategories = [
       { name: 'Medications', color: '#3b82f6', createdAt: new Date() },
       { name: 'Supplies', color: '#10b981', createdAt: new Date() },
       { name: 'Equipment', color: '#f59e0b', createdAt: new Date() },
       { name: 'First Aid', color: '#ef4444', createdAt: new Date() },
     ];
-    await db.categories.bulkAdd(defaultCategories);
 
-    // Add default locations
+    try {
+      await db.categories.bulkAdd(defaultCategories);
+    } catch (error) {
+      // Ignore duplicate key errors (race condition from React StrictMode)
+      console.log('Categories already exist, skipping initialization');
+    }
+  }
+
+  // Check and add locations separately
+  const locationsCount = await db.locations.count();
+  if (locationsCount === 0) {
     const defaultLocations = [
       { name: 'Shelf A', description: 'Top shelf', createdAt: new Date() },
       { name: 'Shelf B', description: 'Middle shelf', createdAt: new Date() },
       { name: 'Refrigerator', description: 'Temperature controlled', createdAt: new Date() },
       { name: 'Storage Room', description: 'Back storage', createdAt: new Date() },
     ];
-    await db.locations.bulkAdd(defaultLocations);
 
-    console.log('Database initialized with default data');
+    try {
+      await db.locations.bulkAdd(defaultLocations);
+    } catch (error) {
+      // Ignore duplicate key errors
+      console.log('Locations already exist, skipping initialization');
+    }
+  }
+
+  // Initialize settings if needed
+  const settingsCount = await db.settings.count();
+  if (settingsCount === 0) {
+    try {
+      await db.settings.add({
+        syncEnabled: false,
+        lowStockAlerts: true,
+      });
+    } catch (error) {
+      // Ignore duplicate key errors
+      console.log('Settings already exist, skipping initialization');
+    }
+  }
+
+  console.log('Database initialized with default data');
+}
+
+// Utility function to remove duplicate categories and locations
+export async function deduplicateDatabase() {
+  // Deduplicate categories
+  const allCategories = await db.categories.toArray();
+  const uniqueCategories = new Map<string, Category>();
+
+  for (const cat of allCategories) {
+    if (!uniqueCategories.has(cat.name)) {
+      uniqueCategories.set(cat.name, cat);
+    }
+  }
+
+  if (uniqueCategories.size < allCategories.length) {
+    await db.categories.clear();
+    await db.categories.bulkAdd(Array.from(uniqueCategories.values()));
+    console.log(`Removed ${allCategories.length - uniqueCategories.size} duplicate categories`);
+  }
+
+  // Deduplicate locations
+  const allLocations = await db.locations.toArray();
+  const uniqueLocations = new Map<string, Location>();
+
+  for (const loc of allLocations) {
+    if (!uniqueLocations.has(loc.name)) {
+      uniqueLocations.set(loc.name, loc);
+    }
+  }
+
+  if (uniqueLocations.size < allLocations.length) {
+    await db.locations.clear();
+    await db.locations.bulkAdd(Array.from(uniqueLocations.values()));
+    console.log(`Removed ${allLocations.length - uniqueLocations.size} duplicate locations`);
   }
 }

@@ -41,16 +41,24 @@ export function ItemCard({ item, onClick, className }: ItemCardProps) {
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-gray-900 truncate">{item.name}</h3>
             {isLowStock && (
-              <AlertCircle className="flex-shrink-0 w-5 h-5 text-red-500" aria-label="Low stock" />
+              <span className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 text-xs font-medium rounded">
+                <AlertCircle className="w-3.5 h-3.5" aria-label="Low stock" />
+                Low Stock
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-4 mb-2 text-sm text-gray-600">
-            <span className={cn('font-medium', isLowStock && 'text-red-600')}>
-              Qty: {item.quantity}
-              {item.minQuantity !== undefined && ` / ${item.minQuantity}`}
+          <div className="flex items-center gap-3 mb-2 text-sm">
+            <span className={cn(
+              'flex items-center gap-1.5 font-semibold',
+              isLowStock ? 'text-red-600' : 'text-gray-900'
+            )}>
+              <Package className="w-4 h-4" />
+              {item.quantity}
             </span>
-            <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">{item.category}</span>
+            <span className="px-2 py-0.5 bg-primary-50 text-primary-700 rounded text-xs font-medium">
+              {item.category}
+            </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs text-gray-500">
