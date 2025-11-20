@@ -11,6 +11,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState<NavItem>('home');
   const [initialized, setInitialized] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [initialBarcode, setInitialBarcode] = useState<string | undefined>(undefined);
 
   // Initialize database on mount
   useEffect(() => {
@@ -44,6 +45,20 @@ function App() {
   const handleAddItemSuccess = () => {
     // Refresh home page after adding item
     setCurrentPage('home');
+    setInitialBarcode(undefined); // Clear barcode after adding
+  };
+
+  const handleScannerItemFound = (item: InventoryItem) => {
+    // Navigate to item detail page when scanner finds an item
+    if (item.id) {
+      setSelectedItemId(item.id);
+    }
+  };
+
+  const handleScannerAddWithBarcode = (barcode: string) => {
+    // Navigate to add page with pre-filled barcode
+    setInitialBarcode(barcode);
+    setCurrentPage('add');
   };
 
   if (!initialized) {
@@ -73,9 +88,19 @@ function App() {
       {currentPage === 'home' && (
         <HomePage onNavigate={handleNavigate} onItemClick={handleItemClick} />
       )}
-      {currentPage === 'scan' && <ScannerPage onNavigate={handleNavigate} />}
+      {currentPage === 'scan' && (
+        <ScannerPage
+          onNavigate={handleNavigate}
+          onItemFound={handleScannerItemFound}
+          onAddWithBarcode={handleScannerAddWithBarcode}
+        />
+      )}
       {currentPage === 'add' && (
-        <AddItemPage onNavigate={handleNavigate} onSuccess={handleAddItemSuccess} />
+        <AddItemPage
+          onNavigate={handleNavigate}
+          onSuccess={handleAddItemSuccess}
+          initialBarcode={initialBarcode}
+        />
       )}
       {currentPage === 'settings' && <SettingsPage onNavigate={handleNavigate} />}
     </>

@@ -10,9 +10,10 @@ import { compressImage } from '../lib/utils';
 interface AddItemPageProps {
   onNavigate: (item: NavItem) => void;
   onSuccess?: () => void;
+  initialBarcode?: string;
 }
 
-export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
+export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPageProps) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
@@ -31,6 +32,13 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
   useEffect(() => {
     loadOptions();
   }, []);
+
+  // Pre-fill barcode if provided from scanner
+  useEffect(() => {
+    if (initialBarcode) {
+      setFormData((prev) => ({ ...prev, barcode: initialBarcode }));
+    }
+  }, [initialBarcode]);
 
   const loadOptions = async () => {
     const [cats, locs] = await Promise.all([getAllCategories(), getAllLocations()]);
@@ -108,7 +116,7 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
+                capture
                 multiple
                 onChange={handlePhotoCapture}
                 className="hidden"
@@ -140,7 +148,10 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
             min="0"
             required
             value={formData.quantity}
-            onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+            onChange={(e) => {
+              const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+              setFormData({ ...formData, quantity: isNaN(value) ? 0 : value });
+            }}
           />
 
           <Input
@@ -148,7 +159,10 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
             type="number"
             min="0"
             value={formData.minQuantity}
-            onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 0 })}
+            onChange={(e) => {
+              const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+              setFormData({ ...formData, minQuantity: isNaN(value) ? 0 : value });
+            }}
           />
         </div>
 
@@ -161,12 +175,17 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             className="input"
+            disabled={categories.length === 0}
           >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
+            {categories.length === 0 ? (
+              <option value="">Loading...</option>
+            ) : (
+              categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
@@ -179,12 +198,17 @@ export function AddItemPage({ onNavigate, onSuccess }: AddItemPageProps) {
             value={formData.location}
             onChange={(e) => setFormData({ ...formData, location: e.target.value })}
             className="input"
+            disabled={locations.length === 0}
           >
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
+            {locations.length === 0 ? (
+              <option value="">Loading...</option>
+            ) : (
+              locations.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))
+            )}
           </select>
         </div>
 

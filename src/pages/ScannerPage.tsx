@@ -10,9 +10,10 @@ import { type InventoryItem } from '../lib/db';
 interface ScannerPageProps {
   onNavigate: (item: NavItem) => void;
   onItemFound?: (item: InventoryItem) => void;
+  onAddWithBarcode?: (barcode: string) => void;
 }
 
-export function ScannerPage({ onNavigate, onItemFound }: ScannerPageProps) {
+export function ScannerPage({ onNavigate, onItemFound, onAddWithBarcode }: ScannerPageProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [foundItem, setFoundItem] = useState<InventoryItem | null>(null);
@@ -47,8 +48,11 @@ export function ScannerPage({ onNavigate, onItemFound }: ScannerPageProps) {
 
   const handleAddNew = () => {
     // Navigate to add page with pre-filled barcode
-    // For now, just navigate to add page
-    onNavigate('add');
+    if (scannedCode && onAddWithBarcode) {
+      onAddWithBarcode(scannedCode);
+    } else {
+      onNavigate('add');
+    }
   };
 
   return (
@@ -64,8 +68,8 @@ export function ScannerPage({ onNavigate, onItemFound }: ScannerPageProps) {
             <p className="mb-8 text-gray-600 max-w-sm">
               Scan product barcodes to quickly find or add items to your inventory
             </p>
-            <Button onClick={handleStartScan} variant="primary" size="lg" className="mb-4">
-              <ScanBarcode className="w-5 h-5 mr-2" />
+            <Button onClick={handleStartScan} variant="primary" size="lg" className="mx-auto mb-4">
+              <ScanBarcode className="w-5 h-5" />
               Start Scanning
             </Button>
             <p className="mt-4 text-sm text-gray-500">
@@ -105,8 +109,12 @@ export function ScannerPage({ onNavigate, onItemFound }: ScannerPageProps) {
             </div>
 
             <div className="space-y-3">
-              <Button onClick={() => onNavigate('home')} variant="primary" fullWidth>
-                View in Inventory
+              <Button
+                onClick={() => foundItem && onItemFound?.(foundItem)}
+                variant="primary"
+                fullWidth
+              >
+                View Item Details
               </Button>
               <Button onClick={handleStartScan} variant="secondary" fullWidth>
                 Scan Another
@@ -127,7 +135,7 @@ export function ScannerPage({ onNavigate, onItemFound }: ScannerPageProps) {
 
             <div className="space-y-3">
               <Button onClick={handleAddNew} variant="primary" fullWidth>
-                <Plus className="w-5 h-5 mr-2" />
+                <Plus className="w-5 h-5" />
                 Add New Item
               </Button>
               <Button onClick={handleStartScan} variant="secondary" fullWidth>
