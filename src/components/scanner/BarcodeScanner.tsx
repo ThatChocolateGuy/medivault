@@ -16,9 +16,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
   // Multi-read verification state
   const detectionHistoryRef = useRef<Array<{ code: string; quality: number; timestamp: number }>>([]);
-  const REQUIRED_MATCHES = 2; // Require 2 consecutive matches (mobile-friendly)
-  const QUALITY_THRESHOLD = 0.6; // Minimum quality score (0-1, relaxed for mobile)
-  const DETECTION_WINDOW = 3000; // 3 second window for matches
+  const REQUIRED_MATCHES = 3; // Require 3 consecutive matches
+  const QUALITY_THRESHOLD = 0.7; // Minimum quality score (0-1)
+  const DETECTION_WINDOW = 2500; // 2.5 second window for matches
 
   useEffect(() => {
     // Prevent double initialization
