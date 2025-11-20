@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Package2, AlertCircle } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { SearchBar } from '../components/common/SearchBar';
 import { EmptyState } from '../components/common/EmptyState';
 import { ItemCard } from '../components/items/ItemCard';
+import { FilterBar, type SortOption } from '../components/items/FilterBar';
+import { FilterPanel, type FilterOptions } from '../components/items/FilterPanel';
 import { type NavItem } from '../components/layout/BottomNav';
 import { type InventoryItem } from '../lib/db';
-import { getAllItems, searchItems, getLowStockItems } from '../lib/db/operations';
+import { getAllItems, getLowStockItems, getAllCategories, getAllLocations } from '../lib/db/operations';
 
 interface HomePageProps {
   onNavigate: (item: NavItem) => void;
@@ -15,22 +17,32 @@ interface HomePageProps {
 
 export function HomePage({ onNavigate, onItemClick }: HomePageProps) {
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Sorting and filtering state
+  const [sortBy, setSortBy] = useState<SortOption>('updated-desc');
+  const [filters, setFilters] = useState<FilterOptions>({
+    categories: [],
+    locations: [],
+    stockStatus: 'all',
+  });
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 
   // Load items
   useEffect(() => {
     loadItems();
     loadLowStockCount();
+    loadFilterOptions();
   }, []);
 
   const loadItems = async () => {
     try {
       const allItems = await getAllItems();
       setItems(allItems);
-      setFilteredItems(allItems);
     } catch (error) {
       console.error('Failed to load items:', error);
     } finally {
@@ -47,20 +59,103 @@ export function HomePage({ onNavigate, onItemClick }: HomePageProps) {
     }
   };
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-
-    if (!query.trim()) {
-      setFilteredItems(items);
-      return;
-    }
-
+  const loadFilterOptions = async () => {
     try {
-      const results = await searchItems(query);
-      setFilteredItems(results);
+      const [categories, locations] = await Promise.all([
+        getAllCategories(),
+        getAllLocations(),
+      ]);
+      setAvailableCategories(categories.map((c) => c.name));
+      setAvailableLocations(locations.map((l) => l.name));
     } catch (error) {
-      console.error('Search failed:', error);
+      console.error('Failed to load filter options:', error);
     }
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  // Apply sorting and filtering with useMemo for performance
+  const filteredAndSortedItems = useMemo(() => {
+    let result = [...items];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.barcode?.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query) ||
+          item.location.toLowerCase().includes(query) ||
+          item.notes?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply category filter
+    if (filters.categories.length > 0) {
+      result = result.filter((item) => filters.categories.includes(item.category));
+    }
+
+    // Apply location filter
+    if (filters.locations.length > 0) {
+      result = result.filter((item) => filters.locations.includes(item.location));
+    }
+
+    // Apply stock status filter
+    if (filters.stockStatus === 'low') {
+      result = result.filter(
+        (item) => item.minQuantity !== undefined && item.quantity <= item.minQuantity
+      );
+    } else if (filters.stockStatus === 'normal') {
+      result = result.filter(
+        (item) => item.minQuantity === undefined || item.quantity > item.minQuantity
+      );
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'quantity-asc':
+          return a.quantity - b.quantity;
+        case 'quantity-desc':
+          return b.quantity - a.quantity;
+        case 'updated-asc':
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+        case 'updated-desc':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        case 'stock-status': {
+          const aIsLow = a.minQuantity !== undefined && a.quantity <= a.minQuantity;
+          const bIsLow = b.minQuantity !== undefined && b.quantity <= b.minQuantity;
+          if (aIsLow && !bIsLow) return -1;
+          if (!aIsLow && bIsLow) return 1;
+          return 0;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, filters, sortBy]);
+
+  // Calculate active filter count
+  const activeFilterCount =
+    filters.categories.length +
+    filters.locations.length +
+    (filters.stockStatus !== 'all' ? 1 : 0);
+
+  const handleClearFilters = () => {
+    setFilters({
+      categories: [],
+      locations: [],
+      stockStatus: 'all',
+    });
   };
 
   if (loading) {
@@ -108,8 +203,17 @@ export function HomePage({ onNavigate, onItemClick }: HomePageProps) {
         />
       </div>
 
+      {/* Filter and sort bar */}
+      <FilterBar
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        onFilterClick={() => setIsFilterPanelOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onClearFilters={handleClearFilters}
+      />
+
       {/* Items list */}
-      {filteredItems.length === 0 ? (
+      {filteredAndSortedItems.length === 0 ? (
         <EmptyState
           icon={Package2}
           title={searchQuery ? 'No items found' : 'No items yet'}
@@ -129,7 +233,7 @@ export function HomePage({ onNavigate, onItemClick }: HomePageProps) {
         />
       ) : (
         <div className="px-4 pb-4 space-y-3">
-          {filteredItems.map((item) => (
+          {filteredAndSortedItems.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
@@ -138,6 +242,16 @@ export function HomePage({ onNavigate, onItemClick }: HomePageProps) {
           ))}
         </div>
       )}
+
+      {/* Filter panel */}
+      <FilterPanel
+        isOpen={isFilterPanelOpen}
+        onClose={() => setIsFilterPanelOpen(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableCategories={availableCategories}
+        availableLocations={availableLocations}
+      />
     </Layout>
   );
 }
