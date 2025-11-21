@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Quagga from '@ericblade/quagga2';
-import { X, Camera, Zap } from 'lucide-react';
+import { X, Camera, Zap, SwitchCamera } from 'lucide-react';
 import { Button } from '../common/Button';
 
 interface BarcodeScannerProps {
@@ -14,6 +14,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const detectedRef = useRef(false);
   const quaggaStarted = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
@@ -42,7 +43,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               constraints: {
                 width: { min: 640, ideal: 1920, max: 1920 },
                 height: { min: 480, ideal: 1080, max: 1080 },
-                facingMode: 'environment', // Prefer back camera, but allow fallback
+                facingMode: facingMode, // User-selectable camera direction
                 aspectRatio: 1.77778, // 16:9 for main camera
               },
             },
@@ -76,15 +77,27 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
             // Get the video element and stream for torch control
             const video = scannerRef.current?.querySelector('video');
+            console.log('Video element found:', !!video);
             if (video) {
               videoRef.current = video;
               const stream = video.srcObject as MediaStream;
+              console.log('Stream found:', !!stream);
               if (stream) {
                 streamRef.current = stream;
                 const track = stream.getVideoTracks()[0];
-                const capabilities = track.getCapabilities?.() as any;
-                if (capabilities?.torch) {
-                  setTorchAvailable(true);
+                console.log('Video track found:', !!track);
+
+                if (track) {
+                  const capabilities = track.getCapabilities?.() as any;
+                  console.log('Track capabilities:', capabilities);
+                  console.log('Torch capability:', capabilities?.torch);
+
+                  if (capabilities?.torch) {
+                    console.log('✅ Torch available!');
+                    setTorchAvailable(true);
+                  } else {
+                    console.log('❌ Torch not available');
+                  }
                 }
               }
             }
@@ -181,7 +194,28 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         // Ignore errors if Quagga wasn't initialized
       }
     };
-  }, [onDetected]);
+  }, [onDetected, facingMode]);
+
+  const switchCamera = () => {
+    // Stop current scanner
+    try {
+      if (quaggaStarted.current) {
+        Quagga.stop();
+        Quagga.offDetected();
+      }
+    } catch (err) {
+      console.error('Error stopping scanner:', err);
+    }
+
+    // Reset state
+    quaggaStarted.current = false;
+    setTorchEnabled(false);
+    setTorchAvailable(false);
+    detectionHistoryRef.current = [];
+
+    // Toggle camera
+    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+  };
 
   const toggleTorch = async () => {
     if (!streamRef.current || !torchAvailable) return;
@@ -208,6 +242,16 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           <span className="font-medium">Scan Barcode</span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Camera switch button */}
+          <button
+            onClick={switchCamera}
+            className="p-2 rounded-full bg-white/20 text-white active:bg-white/30 transition-colors"
+            aria-label="Switch camera"
+          >
+            <SwitchCamera className="w-6 h-6" />
+          </button>
+
+          {/* Torch button */}
           {torchAvailable && (
             <button
               onClick={toggleTorch}
@@ -221,6 +265,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               <Zap className="w-6 h-6" fill={torchEnabled ? 'currentColor' : 'none'} />
             </button>
           )}
+
+          {/* Close button */}
           <button
             onClick={onClose}
             className="p-2 rounded-full bg-white/20 active:bg-white/30"
