@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Quagga from '@ericblade/quagga2';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, Zap } from 'lucide-react';
 import { Button } from '../common/Button';
 
 interface BarcodeScannerProps {
@@ -10,9 +10,13 @@ interface BarcodeScannerProps {
 
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scannerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [torchAvailable, setTorchAvailable] = useState(false);
   const detectedRef = useRef(false);
   const quaggaStarted = useRef(false);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Multi-read verification state
   const detectionHistoryRef = useRef<Array<{ code: string; quality: number; timestamp: number }>>([]);
@@ -69,6 +73,21 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               return;
             }
             Quagga.start();
+
+            // Get the video element and stream for torch control
+            const video = scannerRef.current?.querySelector('video');
+            if (video) {
+              videoRef.current = video;
+              const stream = video.srcObject as MediaStream;
+              if (stream) {
+                streamRef.current = stream;
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities?.() as any;
+                if (capabilities?.torch) {
+                  setTorchAvailable(true);
+                }
+              }
+            }
           }
         );
 
@@ -164,6 +183,22 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     };
   }, [onDetected]);
 
+  const toggleTorch = async () => {
+    if (!streamRef.current || !torchAvailable) return;
+
+    try {
+      const track = streamRef.current.getVideoTracks()[0];
+      const newTorchState = !torchEnabled;
+      await track.applyConstraints({
+        // @ts-ignore - torch is not in TypeScript definitions but works on mobile
+        advanced: [{ torch: newTorchState }]
+      });
+      setTorchEnabled(newTorchState);
+    } catch (err) {
+      console.error('Failed to toggle torch:', err);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black">
       {/* Header */}
@@ -172,13 +207,28 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           <Camera className="w-6 h-6" />
           <span className="font-medium">Scan Barcode</span>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-full bg-white/20 active:bg-white/30"
-          aria-label="Close scanner"
-        >
-          <X className="w-6 h-6 text-white" />
-        </button>
+        <div className="flex items-center gap-2">
+          {torchAvailable && (
+            <button
+              onClick={toggleTorch}
+              className={`p-2 rounded-full transition-colors ${
+                torchEnabled
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-white/20 text-white active:bg-white/30'
+              }`}
+              aria-label={torchEnabled ? 'Turn off flashlight' : 'Turn on flashlight'}
+            >
+              <Zap className="w-6 h-6" fill={torchEnabled ? 'currentColor' : 'none'} />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full bg-white/20 active:bg-white/30"
+            aria-label="Close scanner"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+        </div>
       </div>
 
       {/* Scanner viewport */}
@@ -230,10 +280,13 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       {/* Instructions */}
       {!error && (
         <div className="absolute bottom-0 left-0 right-0 p-6 text-center bg-gradient-to-t from-black/80 to-transparent safe-bottom">
-          <p className="text-white text-sm">
-            Position the barcode within the frame
+          <p className="text-white text-sm leading-relaxed">
+            Hold phone steady 6-10 inches from barcode
             <br />
-            Scanner will detect automatically
+            Ensure barcode is well-lit and in focus
+            <br />
+            {torchAvailable && 'Tap flashlight icon if needed'}
+            {!torchAvailable && 'Scanner will detect automatically'}
           </p>
         </div>
       )}
