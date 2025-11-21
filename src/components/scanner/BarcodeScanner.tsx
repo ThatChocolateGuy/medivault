@@ -42,7 +42,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               constraints: {
                 width: { min: 640, ideal: 1920, max: 1920 },
                 height: { min: 480, ideal: 1080, max: 1080 },
-                facingMode: { exact: 'environment' }, // Use back camera (main camera preferred)
+                facingMode: 'environment', // Prefer back camera, but allow fallback
                 aspectRatio: 1.77778, // 16:9 for main camera
               },
             },
