@@ -21,9 +21,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
   // Multi-read verification state
   const detectionHistoryRef = useRef<Array<{ code: string; quality: number; timestamp: number }>>([]);
-  const REQUIRED_MATCHES = 3; // Require 3 consecutive matches
-  const QUALITY_THRESHOLD = 0.7; // Minimum quality score (0-1)
-  const DETECTION_WINDOW = 2500; // 2.5 second window for matches
+  const REQUIRED_MATCHES = 2; // Require 2 matches (more forgiving)
+  const QUALITY_THRESHOLD = 0.65; // Minimum quality score (0-1)
+  const DETECTION_WINDOW = 3000; // 3 second window for matches
 
   useEffect(() => {
     // Prevent double initialization
@@ -168,18 +168,32 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             (d) => now - d.timestamp < DETECTION_WINDOW
           );
 
-          // Check for consecutive matches
-          const recentDetections = detectionHistoryRef.current.slice(-REQUIRED_MATCHES);
-          const allMatch = recentDetections.length === REQUIRED_MATCHES &&
-            recentDetections.every((d) => d.code === code);
+          // Use "most common code" approach - more forgiving of occasional misreads
+          const recentDetections = detectionHistoryRef.current.slice(-REQUIRED_MATCHES * 2); // Look at wider window
 
-          if (allMatch) {
-            // We have enough consecutive high-quality matches!
+          // Count occurrences of each code
+          const codeCounts = recentDetections.reduce((acc, d) => {
+            acc[d.code] = (acc[d.code] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          // Find most common code
+          const mostCommonCode = Object.keys(codeCounts).reduce((a, b) =>
+            codeCounts[a] > codeCounts[b] ? a : b
+          , code);
+
+          const matchCount = codeCounts[mostCommonCode] || 0;
+
+          console.log(`Detection: ${code} | Most common: ${mostCommonCode} (${matchCount}/${REQUIRED_MATCHES} matches)`);
+
+          // If most common code appears enough times, confirm it
+          if (matchCount >= REQUIRED_MATCHES && recentDetections.length >= REQUIRED_MATCHES) {
             detectedRef.current = true;
 
-            // Calculate average quality of matches
-            const avgQuality = recentDetections.reduce((sum, d) => sum + d.quality, 0) / recentDetections.length;
-            console.log(`✅ Confirmed: ${code} (avg quality: ${avgQuality.toFixed(2)}, ${REQUIRED_MATCHES} matches)`);
+            // Calculate average quality of matches for the confirmed code
+            const confirmedMatches = recentDetections.filter((d) => d.code === mostCommonCode);
+            const avgQuality = confirmedMatches.reduce((sum, d) => sum + d.quality, 0) / confirmedMatches.length;
+            console.log(`✅ Confirmed: ${mostCommonCode} (avg quality: ${avgQuality.toFixed(2)}, ${matchCount} matches)`);
 
             // Visual feedback
             if (scannerRef.current) {
@@ -194,12 +208,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
             // Call callback after short delay to show visual feedback
             setTimeout(() => {
-              onDetected(code);
+              onDetected(mostCommonCode);
             }, 300);
-          } else {
-            // Not enough matches yet - give subtle feedback
-            const matchCount = recentDetections.filter((d) => d.code === code).length;
-            console.log(`Progress: ${matchCount}/${REQUIRED_MATCHES} matches for ${code}`);
           }
         });
       } catch (err) {
