@@ -41,17 +41,17 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               type: 'LiveStream',
               target: scannerRef.current,
               constraints: {
-                width: { min: 640, ideal: 1920, max: 1920 },
-                height: { min: 480, ideal: 1080, max: 1080 },
+                width: { min: 640, ideal: 1280, max: 1280 },
+                height: { min: 480, ideal: 720, max: 720 },
                 facingMode: facingMode, // User-selectable camera direction
                 aspectRatio: 1.77778, // 16:9 for main camera
               },
             },
             locator: {
-              patchSize: 'large',
-              halfSample: false, // Full quality processing for better accuracy
+              patchSize: 'medium',
+              halfSample: true, // Process at half resolution for better mobile performance
             },
-            frequency: 10, // Process 10 frames per second
+            frequency: 5, // Process 5 frames per second (balanced for mobile)
             numOfWorkers: 2,
             decoder: {
               readers: [
@@ -80,10 +80,10 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             let frameCount = 0;
             const frameInterval = setInterval(() => {
               frameCount++;
-              if (frameCount % 10 === 0) {
+              if (frameCount % 5 === 0) {
                 console.log(`📹 Processed ${frameCount} frames`);
               }
-            }, 100); // Log every 1 second (10 frames at 100ms each)
+            }, 200); // Log every 1 second (5 frames at 200ms each)
 
             // Store interval for cleanup
             (window as any).__scannerFrameInterval = frameInterval;
