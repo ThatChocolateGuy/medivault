@@ -74,33 +74,62 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               return;
             }
             Quagga.start();
+            console.log('✅ Quagga started successfully');
+
+            // Log frame processing to verify scanner is working
+            let frameCount = 0;
+            const frameInterval = setInterval(() => {
+              frameCount++;
+              if (frameCount % 10 === 0) {
+                console.log(`📹 Processed ${frameCount} frames`);
+              }
+            }, 100); // Log every 1 second (10 frames at 100ms each)
+
+            // Store interval for cleanup
+            (window as any).__scannerFrameInterval = frameInterval;
+
+            // Log browser info
+            console.log('Browser:', navigator.userAgent);
+            console.log('Platform:', navigator.platform);
 
             // Get the video element and stream for torch control
-            const video = scannerRef.current?.querySelector('video');
-            console.log('Video element found:', !!video);
-            if (video) {
-              videoRef.current = video;
-              const stream = video.srcObject as MediaStream;
-              console.log('Stream found:', !!stream);
-              if (stream) {
-                streamRef.current = stream;
-                const track = stream.getVideoTracks()[0];
-                console.log('Video track found:', !!track);
+            const checkTorch = () => {
+              const video = scannerRef.current?.querySelector('video');
+              console.log('Video element found:', !!video);
+              if (video) {
+                videoRef.current = video;
+                const stream = video.srcObject as MediaStream;
+                console.log('Stream found:', !!stream);
+                if (stream) {
+                  streamRef.current = stream;
+                  const track = stream.getVideoTracks()[0];
+                  console.log('Video track found:', !!track);
 
-                if (track) {
-                  const capabilities = track.getCapabilities?.() as any;
-                  console.log('Track capabilities:', capabilities);
-                  console.log('Torch capability:', capabilities?.torch);
+                  if (track) {
+                    const capabilities = track.getCapabilities?.() as any;
+                    const settings = track.getSettings?.() as any;
+                    console.log('Track capabilities:', capabilities);
+                    console.log('Track settings:', settings);
+                    console.log('Torch capability:', capabilities?.torch);
+                    console.log('Facing mode:', settings?.facingMode);
 
-                  if (capabilities?.torch) {
-                    console.log('✅ Torch available!');
-                    setTorchAvailable(true);
-                  } else {
-                    console.log('❌ Torch not available');
+                    if (capabilities?.torch) {
+                      console.log('✅ Torch available!');
+                      setTorchAvailable(true);
+                    } else {
+                      console.log('❌ Torch not available');
+                      console.log('Available capabilities:', Object.keys(capabilities || {}));
+                    }
                   }
                 }
               }
-            }
+            };
+
+            // Try immediately
+            checkTorch();
+
+            // Also try after a delay (sometimes capabilities aren't immediately available)
+            setTimeout(checkTorch, 1000);
           }
         );
 
@@ -185,6 +214,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     // Cleanup
     return () => {
       try {
+        // Clear frame logging interval
+        if ((window as any).__scannerFrameInterval) {
+          clearInterval((window as any).__scannerFrameInterval);
+        }
+
         // Stop Quagga if it was initialized
         if (quaggaStarted.current) {
           Quagga.stop();
