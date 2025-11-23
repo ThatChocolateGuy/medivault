@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import Quagga from '@ericblade/quagga2';
-import { X, Camera, Zap, SwitchCamera } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { DecodeHintType, BarcodeFormat, NotFoundException } from '@zxing/library';
+import { X, Camera, Zap, SwitchCamera, AlertCircle } from 'lucide-react';
 import { Button } from '../common/Button';
 
 interface BarcodeScannerProps {
@@ -8,214 +9,630 @@ interface BarcodeScannerProps {
   onClose: () => void;
 }
 
+interface DeviceCapabilities {
+  cpuCores: number;
+  isMobile: boolean;
+  batteryLevel: number | null;
+  hasLowBattery: boolean;
+}
+
 export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
-  const scannerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanningRef = useRef(false);
+  const detectedRef = useRef(false);
+  const initializingRef = useRef(false);
+
+  // State
   const [error, setError] = useState<string | null>(null);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const detectedRef = useRef(false);
-  const quaggaStarted = useRef(false);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [deviceCapabilities, setDeviceCapabilities] = useState<DeviceCapabilities>({
+    cpuCores: navigator.hardwareConcurrency || 2,
+    isMobile: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent),
+    batteryLevel: null,
+    hasLowBattery: false,
+  });
+  const [scanStats, setScanStats] = useState({
+    framesProcessed: 0,
+    currentFPS: 10,
+    resolution: { width: 640, height: 480 },
+  });
 
-  // Multi-read verification state
-  const detectionHistoryRef = useRef<Array<{ code: string; quality: number; timestamp: number }>>([]);
-  const REQUIRED_MATCHES = 2; // Require 2 matches (more forgiving)
-  const QUALITY_THRESHOLD = 0.65; // Minimum quality score (0-1)
-  const DETECTION_WINDOW = 3000; // 3 second window for matches
+  // Detection history for multi-read verification with consensus voting
+  const detectionHistoryRef = useRef<Array<{ code: string; timestamp: number }>>([]);
+  const REQUIRED_MATCHES = 3;          // Require 3 matching reads for accuracy
+  const DETECTION_WINDOW = 1500;       // Within 1.5 seconds
+  const CONSENSUS_THRESHOLD = 0.67;    // 67% of reads must agree (2 of 3 minimum)
 
+  // Adaptive parameters (temporarily reduced for better detection)
+  const MIN_FPS = 3;
+  const MAX_FPS = 5;
+
+  // Fixed resolution for consistent performance (no mid-scan upgrades)
+  const SCAN_RESOLUTION = { width: 1280, height: 720 };
+
+  // Get device capabilities on mount
   useEffect(() => {
-    // Prevent double initialization
-    if (quaggaStarted.current) return;
-
-    const initScanner = async () => {
-      if (!scannerRef.current) return;
-
-      quaggaStarted.current = true;
-
+    const detectCapabilities = async () => {
       try {
-        await Quagga.init(
-          {
-            inputStream: {
-              type: 'LiveStream',
-              target: scannerRef.current,
-              constraints: {
-                width: { min: 640, ideal: 1280, max: 1280 },
-                height: { min: 480, ideal: 720, max: 720 },
-                facingMode: facingMode, // User-selectable camera direction
-                aspectRatio: 1.77778, // 16:9 for main camera
-              },
-            },
-            locator: {
-              patchSize: 'medium',
-              halfSample: true, // Process at half resolution for better mobile performance
-            },
-            frequency: 5, // Process 5 frames per second (balanced for mobile)
-            numOfWorkers: 2,
-            decoder: {
-              readers: [
-                'ean_reader',
-                'ean_8_reader',
-                'code_128_reader',
-                'code_39_reader',
-                'upc_reader',
-                'upc_e_reader',
-              ],
-            },
-            locate: true,
-          },
-          (err) => {
-            if (err) {
-              console.error('Failed to initialize Quagga:', err);
-              setError(
-                'Failed to access camera. Please ensure camera permissions are granted and you are using HTTPS.'
-              );
-              return;
-            }
-            Quagga.start();
-            console.log('✅ Quagga started successfully');
+        // @ts-expect-error - Battery API is experimental
+        const battery = await navigator.getBattery?.();
+        if (battery) {
+          const level = battery.level * 100;
+          setDeviceCapabilities(prev => ({
+            ...prev,
+            batteryLevel: level,
+            hasLowBattery: level < 20,
+          }));
 
-            // Log frame processing to verify scanner is working
-            let frameCount = 0;
-            const frameInterval = setInterval(() => {
-              frameCount++;
-              if (frameCount % 5 === 0) {
-                console.log(`📹 Processed ${frameCount} frames`);
-              }
-            }, 200); // Log every 1 second (5 frames at 200ms each)
+          // Listen for battery changes
+          battery.addEventListener('levelchange', () => {
+            const newLevel = battery.level * 100;
+            setDeviceCapabilities(prev => ({
+              ...prev,
+              batteryLevel: newLevel,
+              hasLowBattery: newLevel < 20,
+            }));
+          });
+        }
+      } catch {
+        console.log('Battery API not available');
+      }
+    };
 
-            // Store interval for cleanup
-            (window as any).__scannerFrameInterval = frameInterval;
+    detectCapabilities();
+  }, []);
 
-            // Log browser info
-            console.log('Browser:', navigator.userAgent);
-            console.log('Platform:', navigator.platform);
+  // Calculate optimal FPS based on device capabilities
+  const calculateOptimalFPS = useCallback((caps: DeviceCapabilities): number => {
+    if (caps.hasLowBattery) return MIN_FPS;
+    if (caps.isMobile && caps.cpuCores <= 4) return 7;
+    if (caps.cpuCores >= 8) return MAX_FPS;
+    return 8;
+  }, [MIN_FPS, MAX_FPS]);
 
-            // Get the video element and stream for torch control
-            const checkTorch = () => {
-              const video = scannerRef.current?.querySelector('video');
-              console.log('Video element found:', !!video);
-              if (video) {
-                videoRef.current = video;
-                const stream = video.srcObject as MediaStream;
-                console.log('Stream found:', !!stream);
-                if (stream) {
-                  streamRef.current = stream;
-                  const track = stream.getVideoTracks()[0];
-                  console.log('Video track found:', !!track);
+  // Process single frame - decode from canvas with ROI
+  const processFrame = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || !readerRef.current) return;
+    if (detectedRef.current) return;
 
-                  if (track) {
-                    const capabilities = track.getCapabilities?.() as any;
-                    const settings = track.getSettings?.() as any;
-                    console.log('Track capabilities:', capabilities);
-                    console.log('Track settings:', settings);
-                    console.log('Torch capability:', capabilities?.torch);
-                    console.log('Facing mode:', settings?.facingMode);
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-                    if (capabilities?.torch) {
-                      console.log('✅ Torch available!');
-                      setTorchAvailable(true);
-                    } else {
-                      console.log('❌ Torch not available');
-                      console.log('Available capabilities:', Object.keys(capabilities || {}));
-                    }
-                  }
-                }
-              }
-            };
+      // Skip if video not ready
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        console.debug('⏳ Video not ready:', { width: video.videoWidth, height: video.videoHeight });
+        return;
+      }
 
-            // Try immediately
-            checkTorch();
+      // Initialize canvas dimensions to match video (only once)
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        console.log('📐 Canvas initialized:', { width: canvas.width, height: canvas.height });
+      }
 
-            // Also try after a delay (sometimes capabilities aren't immediately available)
-            setTimeout(checkTorch, 1000);
+      // Get canvas context
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Draw current video frame to canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Calculate ROI (center 60% of frame)
+      const roiWidth = Math.floor(canvas.width * 0.6);
+      const roiHeight = Math.floor(canvas.height * 0.6);
+      const roiX = Math.floor((canvas.width - roiWidth) / 2);
+      const roiY = Math.floor((canvas.height - roiHeight) / 2);
+
+      // Extract ROI image data
+      const roiImageData = ctx.getImageData(roiX, roiY, roiWidth, roiHeight);
+
+      // Create temporary canvas for ROI
+      const roiCanvas = document.createElement('canvas');
+      roiCanvas.width = roiWidth;
+      roiCanvas.height = roiHeight;
+      const roiCtx = roiCanvas.getContext('2d');
+      if (!roiCtx) return;
+
+      // Put ROI ImageData onto temporary canvas
+      roiCtx.putImageData(roiImageData, 0, 0);
+
+      // Decode from ROI canvas
+      try {
+        const result = readerRef.current.decodeFromCanvas(roiCanvas);
+
+        if (result && result.getText()) {
+          const code = result.getText();
+          console.log(`🔍 ZXing detected: ${code} (format: ${result.getBarcodeFormat()})`);
+          handleDetection(code);
+        }
+      } catch (err) {
+        // NotFoundException is normal when no barcode visible
+        if (!(err instanceof NotFoundException)) {
+          // Log ALL non-NotFoundException errors for debugging
+          console.error('❌ Decode error:', err, {
+            videoSize: `${video.videoWidth}x${video.videoHeight}`,
+            canvasSize: `${canvas.width}x${canvas.height}`,
+            roiSize: `${roiWidth}x${roiHeight}`
+          });
+        }
+      }
+    } catch (err) {
+      console.error('❌ Frame processing error:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle barcode detection with consensus voting verification
+  const handleDetection = useCallback((code: string) => {
+    if (detectedRef.current) return;
+
+    const now = Date.now();
+
+    // Add to detection history
+    detectionHistoryRef.current.push({ code, timestamp: now });
+
+    // Remove old detections outside time window
+    detectionHistoryRef.current = detectionHistoryRef.current.filter(
+      d => now - d.timestamp < DETECTION_WINDOW
+    );
+
+    // Count votes for each detected code (majority voting)
+    const votes = new Map<string, number>();
+    detectionHistoryRef.current.forEach(({ code: c }) => {
+      votes.set(c, (votes.get(c) || 0) + 1);
+    });
+
+    // Find code with most votes (winning code)
+    let winningCode = '';
+    let maxVotes = 0;
+    votes.forEach((count, c) => {
+      if (count > maxVotes) {
+        maxVotes = count;
+        winningCode = c;
+      }
+    });
+
+    // Check consensus requirements
+    const totalReads = detectionHistoryRef.current.length;
+    const hasEnoughReads = maxVotes >= REQUIRED_MATCHES;
+    const hasConsensus = maxVotes / totalReads >= CONSENSUS_THRESHOLD;
+
+    if (hasEnoughReads && hasConsensus) {
+      const agreementPct = ((maxVotes / totalReads) * 100).toFixed(0);
+      console.log(`✅ Consensus reached: ${winningCode} (${maxVotes}/${totalReads} votes, ${agreementPct}% agreement)`);
+      confirmDetection(winningCode);
+    } else {
+      console.log(`📊 Verifying: ${winningCode} has ${maxVotes}/${REQUIRED_MATCHES} matches (${totalReads} total reads)`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [REQUIRED_MATCHES, DETECTION_WINDOW, CONSENSUS_THRESHOLD]);
+
+  // Confirm detection and trigger callback
+  const confirmDetection = useCallback((code: string) => {
+    detectedRef.current = true;
+    scanningRef.current = false;
+
+    console.log(`✅ Confirmed: ${code}`);
+
+    // Visual feedback
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+
+    // Haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate([200]);
+    }
+
+    // Call callback after brief delay for visual feedback
+    setTimeout(() => {
+      onDetected(code);
+    }, 300);
+  }, [onDetected]);
+
+  // Main scanning loop with adaptive processing
+  const startScanningLoop = useCallback((targetFPS: number) => {
+    try {
+      const frameDelay = 1000 / targetFPS;
+      let lastFrameTime = 0;
+      let frameCount = 0;
+
+      console.log(`🔄 Starting scanning loop at ${targetFPS} FPS (${frameDelay.toFixed(2)}ms per frame)`);
+      console.log('📋 Initial state:', {
+        scanning: scanningRef.current,
+        detected: detectedRef.current,
+        hasVideo: !!videoRef.current,
+        hasReader: !!readerRef.current
+      });
+
+      const scanFrame = async (timestamp: number) => {
+        try {
+          // Log first frame
+          if (frameCount === 0) {
+            console.log('🎬 First frame callback invoked!', {
+              timestamp,
+              scanning: scanningRef.current,
+              detected: detectedRef.current
+            });
           }
-        );
 
-        // Handle barcode detection with multi-read verification
-        Quagga.onDetected((result) => {
-          if (detectedRef.current) return; // Already detected successfully
-
-          const code = result.codeResult.code;
-          if (!code) return;
-
-          // Calculate quality score from Quagga's error metrics
-          // Lower error = higher quality (invert and normalize to 0-1 scale)
-          const errors = result.codeResult.decodedCodes
-            .filter((c: any) => c.error !== undefined)
-            .map((c: any) => c.error);
-          const avgError = errors.length > 0
-            ? errors.reduce((sum: number, err: number) => sum + err, 0) / errors.length
-            : 1.0;
-          const quality = Math.max(0, 1 - avgError);
-
-          // Log detection for debugging
-          console.log(`Detected: ${code} (quality: ${quality.toFixed(2)})`);
-
-          // Filter out low-quality reads
-          if (quality < QUALITY_THRESHOLD) {
-            console.log(`Rejected: quality ${quality.toFixed(2)} below threshold ${QUALITY_THRESHOLD}`);
+          if (!scanningRef.current || detectedRef.current) {
+            console.log('⏹️ Scanning loop stopped:', { scanning: scanningRef.current, detected: detectedRef.current });
             return;
           }
 
-          // Add to detection history
-          const now = Date.now();
-          detectionHistoryRef.current.push({ code, quality, timestamp: now });
-
-          // Remove old detections outside the time window
-          detectionHistoryRef.current = detectionHistoryRef.current.filter(
-            (d) => now - d.timestamp < DETECTION_WINDOW
-          );
-
-          // Use "most common code" approach - more forgiving of occasional misreads
-          const recentDetections = detectionHistoryRef.current.slice(-REQUIRED_MATCHES * 2); // Look at wider window
-
-          // Count occurrences of each code
-          const codeCounts = recentDetections.reduce((acc, d) => {
-            acc[d.code] = (acc[d.code] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
-
-          // Find most common code
-          const mostCommonCode = Object.keys(codeCounts).reduce((a, b) =>
-            codeCounts[a] > codeCounts[b] ? a : b
-          , code);
-
-          const matchCount = codeCounts[mostCommonCode] || 0;
-
-          console.log(`Detection: ${code} | Most common: ${mostCommonCode} (${matchCount}/${REQUIRED_MATCHES} matches)`);
-
-          // If most common code appears enough times, confirm it
-          if (matchCount >= REQUIRED_MATCHES && recentDetections.length >= REQUIRED_MATCHES) {
-            detectedRef.current = true;
-
-            // Calculate average quality of matches for the confirmed code
-            const confirmedMatches = recentDetections.filter((d) => d.code === mostCommonCode);
-            const avgQuality = confirmedMatches.reduce((sum, d) => sum + d.quality, 0) / confirmedMatches.length;
-            console.log(`✅ Confirmed: ${mostCommonCode} (avg quality: ${avgQuality.toFixed(2)}, ${matchCount} matches)`);
-
-            // Visual feedback
-            if (scannerRef.current) {
-              scannerRef.current.style.borderColor = '#10b981';
-              scannerRef.current.style.borderWidth = '4px';
-            }
-
-            // Vibrate if supported
-            if (navigator.vibrate) {
-              navigator.vibrate(200);
-            }
-
-            // Call callback after short delay to show visual feedback
-            setTimeout(() => {
-              onDetected(mostCommonCode);
-            }, 300);
+          // Adaptive frame skipping
+          if (timestamp - lastFrameTime < frameDelay) {
+            requestAnimationFrame(scanFrame);
+            return;
           }
+
+          lastFrameTime = timestamp;
+          frameCount++;
+
+          // Update stats every frame for better visibility
+          setScanStats(prev => ({ ...prev, framesProcessed: frameCount }));
+
+          // Log every 20 frames
+          if (frameCount % 20 === 0) {
+            console.log(`📊 Processed ${frameCount} frames`);
+          }
+
+          // Process frame
+          await processFrame();
+
+          // Continue loop
+          requestAnimationFrame(scanFrame);
+        } catch (err) {
+          console.error('❌ Error in scanFrame:', err);
+          // Try to continue scanning despite error
+          requestAnimationFrame(scanFrame);
+        }
+      };
+
+      const rafId = requestAnimationFrame(scanFrame);
+      console.log('✅ requestAnimationFrame registered, ID:', rafId);
+    } catch (err) {
+      console.error('❌ Error in startScanningLoop:', err);
+    }
+  }, [processFrame]);
+
+  // Helper function to find best camera with autofocus capability
+  const findBestCamera = useCallback(async (targetFacingMode: 'user' | 'environment'): Promise<string | undefined> => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+      console.log('📷 Available cameras:', videoDevices.map(d => d.label || d.deviceId));
+
+      // Filter cameras by facing mode FIRST
+      const filteredDevices = videoDevices.filter(device => {
+        const label = device.label.toLowerCase();
+        if (!label) return true; // Include unlabeled cameras
+
+        if (targetFacingMode === 'environment') {
+          return label.includes('back') || label.includes('rear');
+        } else if (targetFacingMode === 'user') {
+          return label.includes('front') || label.includes('user');
+        }
+        return true;
+      });
+
+      console.log(`📷 Filtered to ${filteredDevices.length} ${targetFacingMode} cameras`);
+
+      // Try each filtered camera and check for autofocus capability
+      for (const device of filteredDevices) {
+        const label = device.label.toLowerCase();
+
+        // Skip obvious ultrawide/telephoto cameras
+        if (label && (label.includes('ultra') || label.includes('tele'))) {
+          console.log(`⏭️ Skipping ${device.label} (ultrawide/telephoto)`);
+          continue;
+        }
+
+        try {
+          // Request this specific camera to test capabilities
+          const testStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: device.deviceId } }
+          });
+
+          const track = testStream.getVideoTracks()[0];
+          const caps = track.getCapabilities() as MediaTrackCapabilities & {
+            focusMode?: string[];
+          };
+
+          const hasAutofocus = caps?.focusMode?.includes('continuous');
+
+          // Clean up test stream
+          testStream.getTracks().forEach(t => t.stop());
+
+          // Wait for camera to fully release
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          if (hasAutofocus) {
+            console.log(`✅ Found camera with autofocus: ${device.label || device.deviceId}`);
+            return device.deviceId;
+          } else {
+            console.log(`⏭️ Skipping ${device.label || device.deviceId} (no continuous autofocus)`);
+          }
+        } catch (err) {
+          console.warn(`⚠️ Could not test camera ${device.label || device.deviceId}:`, err);
+        }
+      }
+
+      console.warn('⚠️ No camera with continuous autofocus found, using default');
+      return undefined;
+    } catch (err) {
+      console.error('❌ Camera enumeration failed:', err);
+      return undefined;
+    }
+  }, []);
+
+  // Initialize scanner
+  useEffect(() => {
+    // Allow re-initialization if we have no active stream (handles StrictMode remount)
+    if (detectedRef.current || (initializingRef.current && streamRef.current)) {
+      console.log('⏭️ Skipping initialization:', {
+        detected: detectedRef.current,
+        initializing: initializingRef.current,
+        hasStream: !!streamRef.current
+      });
+      return;
+    }
+
+    const initScanner = async () => {
+      initializingRef.current = true;
+      console.log('🚀 Initializing scanner...', {
+        attempt: streamRef.current ? 'retry after cleanup' : 'first attempt'
+      });
+
+      // Diagnostic checks
+      console.log('=== Scanner Diagnostics ===');
+      console.log('URL:', window.location.href);
+      console.log('Protocol:', window.location.protocol);
+      console.log('Is HTTPS:', window.location.protocol === 'https:');
+      console.log('Is localhost:', window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      console.log('MediaDevices available:', !!navigator.mediaDevices);
+      console.log('getUserMedia available:', !!navigator.mediaDevices?.getUserMedia);
+      console.log('User agent:', navigator.userAgent);
+      console.log('========================');
+
+      try {
+        // Configure ZXing hints for optimal scanning
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.QR_CODE,
+        ]);
+        hints.set(DecodeHintType.TRY_HARDER, true); // Enable for better detection
+        hints.set(DecodeHintType.ASSUME_GS1, false);
+
+        // Create reader
+        const reader = new BrowserMultiFormatReader(hints);
+        readerRef.current = reader;
+
+        console.log('📋 ZXing configured for formats:', [
+          'CODE_128', 'CODE_39', 'EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'QR_CODE'
+        ]);
+
+        // Calculate optimal FPS based on device capabilities
+        const optimalFPS = calculateOptimalFPS(deviceCapabilities);
+        setScanStats(prev => ({ ...prev, currentFPS: optimalFPS, resolution: SCAN_RESOLUTION }));
+
+        // Find best camera with autofocus capability
+        const bestCameraId = await findBestCamera(facingMode);
+
+        // Wait for any test cameras to fully release hardware
+        if (bestCameraId) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          console.log('⏳ Camera hardware released, requesting final camera...');
+        }
+
+        // Request camera with explicit deviceId or fallback to facingMode
+        const constraints: MediaStreamConstraints = {
+          video: bestCameraId ? {
+            deviceId: { exact: bestCameraId },
+            width: { ideal: SCAN_RESOLUTION.width },
+            height: { ideal: SCAN_RESOLUTION.height },
+            aspectRatio: { ideal: 16 / 9 },
+
+            // Enable continuous autofocus
+            // @ts-expect-error - focusMode not in TypeScript defs yet
+            focusMode: { ideal: 'continuous' },
+
+            // Prefer close focus distance (0.2 = ~6-10 inches optimal for barcodes)
+            // @ts-expect-error - focusDistance not in TypeScript defs yet
+            focusDistance: { ideal: 0.2 },
+          } : {
+            // Fallback if no camera with autofocus found
+            facingMode: facingMode,
+            width: { ideal: SCAN_RESOLUTION.width },
+            height: { ideal: SCAN_RESOLUTION.height },
+            aspectRatio: { ideal: 16 / 9 },
+
+            // @ts-expect-error - focusMode not in TypeScript defs yet
+            focusMode: { ideal: 'continuous' },
+
+            // @ts-expect-error - focusDistance not in TypeScript defs yet
+            focusDistance: { ideal: 0.2 },
+          },
+        };
+
+        console.log('🎥 Requesting camera with constraints:', {
+          usingDeviceId: !!bestCameraId,
+          constraints: bestCameraId ? 'explicit deviceId' : 'facingMode fallback'
         });
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        streamRef.current = stream;
+
+        if (!videoRef.current) return;
+
+        const video = videoRef.current;
+        video.srcObject = stream;
+
+        // Wait for video to be ready (readyState >= 3 for actual frames)
+        console.log('⏳ Waiting for video to be ready...');
+        await new Promise<void>((resolve) => {
+          const checkReady = () => {
+            if (video.readyState >= 3 && video.videoWidth > 0 && video.videoHeight > 0) {
+              console.log('📹 Video ready:', {
+                readyState: video.readyState,
+                dimensions: `${video.videoWidth}x${video.videoHeight}`,
+                paused: video.paused
+              });
+              video.removeEventListener('loadeddata', checkReady);
+              video.removeEventListener('canplay', checkReady);
+              video.removeEventListener('playing', checkReady);
+              resolve();
+            }
+          };
+
+          // Check immediately
+          if (video.readyState >= 3 && video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log('📹 Video ready immediately');
+            resolve();
+            return;
+          }
+
+          // Listen to multiple events to catch when ready
+          video.addEventListener('loadeddata', checkReady);
+          video.addEventListener('canplay', checkReady);
+          video.addEventListener('playing', checkReady);
+
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            video.removeEventListener('loadeddata', checkReady);
+            video.removeEventListener('canplay', checkReady);
+            video.removeEventListener('playing', checkReady);
+            console.log('⚠️ Video ready timeout, proceeding anyway:', {
+              readyState: video.readyState,
+              dimensions: `${video.videoWidth}x${video.videoHeight}`
+            });
+            resolve();
+          }, 5000);
+        });
+
+        // Ensure video is playing (defensive fallback if autoPlay fails)
+        if (video.paused) {
+          try {
+            await video.play();
+            console.log('✅ Video playback started programmatically');
+          } catch (playErr) {
+            console.warn('⚠️ Video play() failed:', playErr);
+            // In most cases autoPlay will handle this, so this is just a fallback
+          }
+        } else {
+          console.log('✅ Video already playing via autoPlay');
+        }
+
+        // Check camera capabilities and apply autofocus
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & {
+          torch?: boolean;
+          focusMode?: string[];
+          focusDistance?: { min: number; max: number; step: number };
+        };
+
+        console.log('📷 Camera selected:', {
+          label: videoTrack.label,
+          focusModes: capabilities?.focusMode,
+          focusDistance: capabilities?.focusDistance,
+        });
+
+        // Apply continuous autofocus if supported
+        if (capabilities?.focusMode?.includes('continuous')) {
+          try {
+            const minFocusDistance = capabilities.focusDistance?.min ?? 0.2;
+            await videoTrack.applyConstraints({
+              // @ts-expect-error - focusMode/focusDistance not in TypeScript defs
+              advanced: [
+                { focusMode: 'continuous' },
+                { focusDistance: Math.max(minFocusDistance, 0.2) }
+              ]
+            });
+            console.log('✅ Continuous autofocus enabled');
+          } catch (err) {
+            console.warn('⚠️ Could not apply autofocus:', err);
+          }
+        } else {
+          console.warn('⚠️ Continuous autofocus not available on this camera');
+        }
+
+        // Check torch capability
+        if (capabilities?.torch) {
+          setTorchAvailable(true);
+          console.log('✅ Torch available');
+        }
+
+        // Start scanning loop
+        console.log('🎬 Starting scanning loop...');
+        scanningRef.current = true;
+        startScanningLoop(optimalFPS);
+
+        console.log('✅ ZXing scanner initialized', {
+          fps: optimalFPS,
+          resolution: SCAN_RESOLUTION,
+          device: deviceCapabilities,
+        });
+
       } catch (err) {
         console.error('Scanner initialization error:', err);
-        setError('Failed to initialize scanner. Please try again.');
-        quaggaStarted.current = false; // Reset on error so user can retry
+
+        // Detailed error logging
+        let errorMessage = 'Failed to access camera. ';
+
+        if (err instanceof Error) {
+          console.error('Error name:', err.name);
+          console.error('Error message:', err.message);
+
+          // AbortError is expected in React StrictMode (development only)
+          // It happens when the component unmounts during initialization
+          if (err.name === 'AbortError') {
+            console.warn('⚠️ Scanner initialization aborted (likely due to React StrictMode in development)');
+            console.warn('This is expected in development and will not happen in production.');
+            // Don't show error to user - it will reinitialize
+            return;
+          } else if (err.name === 'NotAllowedError') {
+            errorMessage += 'Permission denied. Please allow camera access in browser settings.';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage += 'No camera found on this device.';
+          } else if (err.name === 'NotReadableError') {
+            errorMessage += 'Camera is in use by another application.';
+          } else if (err.name === 'OverconstrainedError') {
+            errorMessage += 'Camera does not support the requested resolution.';
+          } else if (err.name === 'SecurityError') {
+            errorMessage += 'Camera access blocked by browser security policy. Ensure you are using HTTPS.';
+          } else {
+            errorMessage += `${err.message} (${err.name})`;
+          }
+        } else {
+          errorMessage += 'Unknown error occurred.';
+        }
+
+        // Check if MediaDevices API is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          errorMessage = 'Camera API not supported. Please use a modern browser (Chrome, Firefox, Safari).';
+        }
+
+        setError(errorMessage);
       }
     };
 
@@ -223,55 +640,63 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
     // Cleanup
     return () => {
-      try {
-        // Clear frame logging interval
-        if ((window as any).__scannerFrameInterval) {
-          clearInterval((window as any).__scannerFrameInterval);
-        }
+      console.log('🧹 Cleaning up scanner...', {
+        hadStream: !!streamRef.current,
+        wasScanning: scanningRef.current
+      });
 
-        // Stop Quagga if it was initialized
-        if (quaggaStarted.current) {
-          Quagga.stop();
-          Quagga.offDetected();
-        }
-      } catch (err) {
-        // Ignore errors if Quagga wasn't initialized
+      scanningRef.current = false;
+      detectedRef.current = false;
+      initializingRef.current = false; // Reset immediately to allow re-init
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('⏹️ Stopped camera track');
+        });
+        streamRef.current = null;
       }
+
+      // BrowserMultiFormatReader doesn't need cleanup - it's a stateless decoder
+
+      console.log('✅ Cleanup complete');
     };
-  }, [onDetected, facingMode]);
+  }, [facingMode, deviceCapabilities, calculateOptimalFPS, startScanningLoop, findBestCamera]);
 
+  // Switch camera
   const switchCamera = () => {
-    // Stop current scanner
-    try {
-      if (quaggaStarted.current) {
-        Quagga.stop();
-        Quagga.offDetected();
-      }
-    } catch (err) {
-      console.error('Error stopping scanner:', err);
+    // Stop current stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
     }
 
     // Reset state
-    quaggaStarted.current = false;
+    scanningRef.current = false;
+    detectedRef.current = false;
+    initializingRef.current = false;
+    detectionHistoryRef.current = [];
     setTorchEnabled(false);
     setTorchAvailable(false);
-    detectionHistoryRef.current = [];
 
     // Toggle camera
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
+  // Toggle torch
   const toggleTorch = async () => {
     if (!streamRef.current || !torchAvailable) return;
 
     try {
       const track = streamRef.current.getVideoTracks()[0];
       const newTorchState = !torchEnabled;
+
       await track.applyConstraints({
-        // @ts-ignore - torch is not in TypeScript definitions but works on mobile
+        // @ts-expect-error - torch is not in TypeScript definitions
         advanced: [{ torch: newTorchState }]
       });
+
       setTorchEnabled(newTorchState);
+      console.log(`💡 Torch ${newTorchState ? 'ON' : 'OFF'}`);
     } catch (err) {
       console.error('Failed to toggle torch:', err);
     }
@@ -322,48 +747,67 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       </div>
 
       {/* Scanner viewport */}
-      <div className="relative w-full h-full flex items-center justify-center px-4">
+      <div className="relative w-full h-full flex items-center justify-center">
         {error ? (
           <div className="px-6 text-center">
+            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-red-100">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
             <div className="mb-4 text-red-400 text-lg">{error}</div>
             <Button onClick={onClose} variant="secondary">
               Close
             </Button>
           </div>
         ) : (
-          <>
-            <div
-              ref={scannerRef}
-              className="relative w-full mx-auto"
-              style={{
-                maxWidth: '600px',
-                aspectRatio: '16/9',
-                maxHeight: 'calc(100vh - 200px)'
-              }}
+          <div className="relative w-full h-full">
+            {/* Video element */}
+            <video
+              ref={videoRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              playsInline
+              muted
+              autoPlay
             />
 
-            {/* Scanning guide overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
+            {/* Hidden canvas for processing */}
+            <canvas
+              ref={canvasRef}
+              className="hidden"
+            />
+
+            {/* Scanning guide overlay with ROI indicator */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div
                 className="relative"
                 style={{
-                  width: '100%',
+                  width: '60%',
                   maxWidth: '400px',
                   aspectRatio: '16/9'
                 }}
               >
                 {/* Corner guides */}
-                <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-green-500" />
-                <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-green-500" />
-                <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-green-500" />
-                <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-green-500" />
+                <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-green-500" />
+                <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-green-500" />
+                <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-green-500" />
+                <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-green-500" />
 
-                {/* Center line guides */}
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500/30 transform -translate-y-1/2" />
-                <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500/30 transform -translate-x-1/2" />
+                {/* Scanning line animation */}
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-500 animate-scan-line" />
               </div>
             </div>
-          </>
+
+            {/* Performance stats (debug mode) */}
+            {import.meta.env.DEV && (
+              <div className="absolute top-20 left-4 bg-black/70 text-white text-xs p-2 rounded font-mono">
+                <div>FPS: {scanStats.currentFPS}</div>
+                <div>Res: {scanStats.resolution.width}x{scanStats.resolution.height}</div>
+                <div>Frames: {scanStats.framesProcessed}</div>
+                {deviceCapabilities.batteryLevel !== null && (
+                  <div>Battery: {deviceCapabilities.batteryLevel.toFixed(0)}%</div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -373,10 +817,12 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           <p className="text-white text-sm leading-relaxed">
             Hold phone steady 6-10 inches from barcode
             <br />
-            Ensure barcode is well-lit and in focus
+            Position barcode in the center frame
             <br />
-            {torchAvailable && 'Tap flashlight icon if needed'}
-            {!torchAvailable && 'Scanner will detect automatically'}
+            {deviceCapabilities.hasLowBattery && (
+              <span className="text-yellow-400">⚠️ Low battery - reduced scan rate<br /></span>
+            )}
+            Scanner will detect automatically
           </p>
         </div>
       )}

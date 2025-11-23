@@ -18,6 +18,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
   const [categories, setCategories] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photosProcessing, setPhotosProcessing] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -51,22 +52,51 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
   };
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📸 handlePhotoCapture called');
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) {
+      console.log('⏭️ No files selected');
+      return;
+    }
+
+    console.log(`📸 Processing ${files.length} photo(s)`);
+    const input = e.target;
+    setPhotosProcessing(true);
 
     try {
       const compressed = await Promise.all(
-        Array.from(files).map((file) => compressImage(file))
+        Array.from(files).map(async (file) => {
+          console.log(`🔄 Compressing ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
+          const result = await compressImage(file);
+          console.log(`✅ Compressed ${file.name}`);
+          return result;
+        })
       );
-      setPhotos((prev) => [...prev, ...compressed]);
+      setPhotos((prev) => {
+        console.log(`📸 Adding ${compressed.length} photos to collection (${prev.length} existing)`);
+        return [...prev, ...compressed];
+      });
+      console.log('✅ All photos processed successfully');
     } catch (error) {
-      console.error('Failed to process photos:', error);
+      console.error('❌ Failed to process photos:', error);
+      alert(`Failed to process photos: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setPhotosProcessing(false);
+      // Clear file input to allow re-selection of same files
+      if (input) input.value = '';
+      console.log('🧹 Photo processing complete, input cleared');
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
+
+    // Block submission if photos are still being processed
+    if (photosProcessing) {
+      console.warn('Photos are still processing, blocking submission');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -101,7 +131,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
 
   return (
     <Layout title="Add Item" activeNav="add" onNavigate={onNavigate}>
-      <form onSubmit={handleSubmit} className="p-4 space-y-4">
+      <form onSubmit={handleSubmit} className="p-4 space-y-4" noValidate>
         {/* Photo upload */}
         <div>
           <label className="block mb-2 text-sm font-medium text-gray-700">Photos</label>
@@ -112,17 +142,23 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
               </div>
             ))}
 
-            <label className="flex-shrink-0 flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer active:bg-gray-50">
-              <input
-                type="file"
-                accept="image/*"
-                capture
-                multiple
-                onChange={handlePhotoCapture}
-                className="hidden"
-              />
-              <Camera className="w-8 h-8 text-gray-400" />
-            </label>
+            <div className="flex-shrink-0">
+              <label
+                className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer active:bg-gray-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  onChange={handlePhotoCapture}
+                  onClick={(e) => e.stopPropagation()}
+                  className="hidden"
+                />
+                <Camera className="w-8 h-8 text-gray-400" />
+              </label>
+            </div>
           </div>
         </div>
 
@@ -224,8 +260,13 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
         </div>
 
         <div className="pt-4 space-y-3">
-          <Button type="submit" variant="primary" fullWidth loading={loading}>
-            Add Item
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            loading={loading || photosProcessing}
+          >
+            {photosProcessing ? 'Processing photos...' : 'Add Item'}
           </Button>
           <Button type="button" variant="secondary" fullWidth onClick={() => onNavigate('home')}>
             Cancel

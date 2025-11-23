@@ -28,6 +28,17 @@ export function formatRelativeTime(date: Date): string {
 
 // Image compression
 export async function compressImage(file: File, maxWidth: number = 800): Promise<string> {
+  // Validate file size (max 10MB)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`File size exceeds 10MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+  }
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error(`Invalid file type: ${file.type}. Please select an image file.`);
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -37,6 +48,12 @@ export async function compressImage(file: File, maxWidth: number = 800): Promise
         let width = img.width;
         let height = img.height;
 
+        // Validate image dimensions
+        if (width === 0 || height === 0) {
+          reject(new Error('Invalid image dimensions'));
+          return;
+        }
+
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
           width = maxWidth;
@@ -45,15 +62,35 @@ export async function compressImage(file: File, maxWidth: number = 800): Promise
         canvas.width = width;
         canvas.height = height;
 
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
 
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        try {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+          // Clean up canvas
+          canvas.width = 0;
+          canvas.height = 0;
+
+          resolve(dataUrl);
+        } catch (error) {
+          reject(new Error(`Failed to compress image: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        }
       };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
+      img.onerror = () => reject(new Error('Failed to load image'));
+
+      const result = e.target?.result;
+      if (!result || typeof result !== 'string') {
+        reject(new Error('Failed to read file'));
+        return;
+      }
+      img.src = result;
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }

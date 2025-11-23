@@ -64,5 +64,11 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: ['.ngrok-free.dev', '.localtunnel.me', '.loca.lt'],
+    host: true, // Expose to network
+    hmr: {
+      // Prevent page reload when camera app backgrounds the browser
+      timeout: 60000, // Increase timeout to 60 seconds
+      overlay: false, // Disable error overlay that can trigger reloads
+    },
   },
 });
