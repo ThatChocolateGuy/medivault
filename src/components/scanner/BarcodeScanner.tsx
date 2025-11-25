@@ -471,27 +471,21 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             width: { ideal: SCAN_RESOLUTION.width },
             height: { ideal: SCAN_RESOLUTION.height },
             aspectRatio: { ideal: 16 / 9 },
-
-            // Enable continuous autofocus
-            // @ts-expect-error - focusMode not in TypeScript defs yet
+            // Enable continuous autofocus (experimental API)
             focusMode: { ideal: 'continuous' },
-
             // Prefer close focus distance (0.2 = ~6-10 inches optimal for barcodes)
-            // @ts-expect-error - focusDistance not in TypeScript defs yet
             focusDistance: { ideal: 0.2 },
-          } : {
+          } as any : {
             // Fallback if no camera with autofocus found
             facingMode: facingMode,
             width: { ideal: SCAN_RESOLUTION.width },
             height: { ideal: SCAN_RESOLUTION.height },
             aspectRatio: { ideal: 16 / 9 },
-
-            // @ts-expect-error - focusMode not in TypeScript defs yet
+            // Enable continuous autofocus (experimental API)
             focusMode: { ideal: 'continuous' },
-
-            // @ts-expect-error - focusDistance not in TypeScript defs yet
+            // Prefer close focus distance (0.2 = ~6-10 inches optimal for barcodes)
             focusDistance: { ideal: 0.2 },
-          },
+          } as any,
         };
 
         console.log('🎥 Requesting camera with constraints:', {
@@ -602,13 +596,13 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         if (capabilities?.focusMode?.includes('continuous')) {
           try {
             const minFocusDistance = capabilities.focusDistance?.min ?? 0.2;
+            // Use experimental focus APIs (not in TypeScript defs yet)
             await videoTrack.applyConstraints({
-              // @ts-expect-error - focusMode/focusDistance not in TypeScript defs
               advanced: [
                 { focusMode: 'continuous' },
                 { focusDistance: Math.max(minFocusDistance, 0.2) }
               ]
-            });
+            } as any);
             console.log('✅ Continuous autofocus enabled');
           } catch (err) {
             console.warn('⚠️ Could not apply autofocus:', err);
