@@ -21,6 +21,16 @@ export default {
           950: '#172554',
         },
       },
+      keyframes: {
+        'scan-line': {
+          '0%': { top: '0%' },
+          '50%': { top: '100%' },
+          '100%': { top: '0%' },
+        },
+      },
+      animation: {
+        'scan-line': 'scan-line 2s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

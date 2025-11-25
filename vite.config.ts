@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Medical Inventory Tracker',
-        short_name: 'Med Inventory',
-        description: 'Track your medical inventory with offline support and barcode scanning',
+        name: 'MediVault',
+        short_name: 'MediVault',
+        description: 'Modern medical inventory management with barcode scanning and offline support',
         theme_color: '#2563eb',
         background_color: '#ffffff',
         display: 'standalone',

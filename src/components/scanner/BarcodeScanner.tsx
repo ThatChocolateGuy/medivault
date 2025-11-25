@@ -24,6 +24,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const scanningRef = useRef(false);
   const detectedRef = useRef(false);
   const initializingRef = useRef(false);
+  const abortInitRef = useRef(false);
+  const cleanupCameraRef = useRef<(() => void) | null>(null);
 
   // State
   const [error, setError] = useState<string | null>(null);
@@ -238,6 +240,10 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
     // Call callback after brief delay for visual feedback
     setTimeout(() => {
+      // Cleanup camera before callback (which unmounts component)
+      if (cleanupCameraRef.current) {
+        cleanupCameraRef.current();
+      }
       onDetected(code);
     }, 300);
   }, [onDetected]);
@@ -394,6 +400,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
     const initScanner = async () => {
       initializingRef.current = true;
+      abortInitRef.current = false; // Reset abort flag for this initialization
       console.log('🚀 Initializing scanner...', {
         attempt: streamRef.current ? 'retry after cleanup' : 'first attempt'
       });
@@ -439,10 +446,22 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         // Find best camera with autofocus capability
         const bestCameraId = await findBestCamera(facingMode);
 
+        // Check if cleanup was called during camera enumeration
+        if (abortInitRef.current) {
+          console.warn('⚠️ Cleanup called during camera enumeration, aborting initialization');
+          return;
+        }
+
         // Wait for any test cameras to fully release hardware
         if (bestCameraId) {
           await new Promise(resolve => setTimeout(resolve, 200));
           console.log('⏳ Camera hardware released, requesting final camera...');
+        }
+
+        // Check again after delay
+        if (abortInitRef.current) {
+          console.warn('⚠️ Cleanup called during camera release delay, aborting initialization');
+          return;
         }
 
         // Request camera with explicit deviceId or fallback to facingMode
@@ -481,9 +500,31 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         });
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
 
-        if (!videoRef.current) return;
+        // Store stream IMMEDIATELY so cleanup can find it if user exits during initialization
+        streamRef.current = stream;
+        console.log('📹 Stream acquired and stored in ref');
+
+        // Check if cleanup was called during camera acquisition
+        if (abortInitRef.current) {
+          console.warn('⚠️ Cleanup called during camera acquisition, stopping stream immediately');
+          stream.getTracks().forEach(track => {
+            console.log(`⏹️ Stopping orphaned track: ${track.kind} (${track.label})`);
+            track.stop();
+          });
+          streamRef.current = null;
+          return;
+        }
+
+        // Check if video element is still available
+        if (!videoRef.current) {
+          console.warn('⚠️ Video element unmounted, stopping stream');
+          stream.getTracks().forEach(track => {
+            track.stop();
+          });
+          streamRef.current = null;
+          return;
+        }
 
         const video = videoRef.current;
         video.srcObject = stream;
@@ -645,14 +686,28 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         wasScanning: scanningRef.current
       });
 
+      // Signal abort to any ongoing initialization
+      abortInitRef.current = true;
+
       scanningRef.current = false;
       detectedRef.current = false;
       initializingRef.current = false; // Reset immediately to allow re-init
 
+      // Pause video first
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+        console.log('📹 Paused and cleared video source');
+      }
+
+      // Stop all camera tracks
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
+        const tracks = streamRef.current.getTracks();
+        console.log(`⏹️ Stopping ${tracks.length} camera track(s)`);
+        tracks.forEach((track, index) => {
+          console.log(`⏹️ Track ${index + 1}: ${track.kind} (${track.label}) - State: ${track.readyState}`);
           track.stop();
-          console.log('⏹️ Stopped camera track');
+          console.log(`✅ Track ${index + 1} stopped - New state: ${track.readyState}`);
         });
         streamRef.current = null;
       }
@@ -662,6 +717,74 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       console.log('✅ Cleanup complete');
     };
   }, [facingMode, deviceCapabilities, calculateOptimalFPS, startScanningLoop, findBestCamera]);
+
+  // Explicit cleanup function for immediate camera release
+  const cleanupCamera = useCallback(() => {
+    console.log('🧹 Manual cleanup triggered');
+
+    // Signal abort to any ongoing initialization
+    abortInitRef.current = true;
+
+    // Stop scanning loop immediately
+    scanningRef.current = false;
+    detectedRef.current = false;
+
+    // Stop all camera tracks FIRST (before touching video element)
+    if (streamRef.current) {
+      const tracks = streamRef.current.getTracks();
+      console.log(`⏹️ Stopping ${tracks.length} camera track(s)`);
+
+      tracks.forEach((track, index) => {
+        console.log(`⏹️ Track ${index + 1}: ${track.kind} (${track.label}) - State: ${track.readyState}`);
+
+        // Try to stop the track
+        try {
+          track.stop();
+
+          // Verify it actually stopped
+          if (track.readyState !== 'ended') {
+            console.warn(`⚠️ Track ${index + 1} didn't stop immediately, retrying...`);
+            // Force stop again
+            track.stop();
+
+            // Check again after a microtask
+            setTimeout(() => {
+              if (track.readyState !== 'ended') {
+                console.error(`❌ Track ${index + 1} FAILED to stop! State: ${track.readyState}`);
+              } else {
+                console.log(`✅ Track ${index + 1} stopped on retry`);
+              }
+            }, 0);
+          } else {
+            console.log(`✅ Track ${index + 1} stopped - State: ${track.readyState}`);
+          }
+        } catch (err) {
+          console.error(`❌ Error stopping track ${index + 1}:`, err);
+        }
+      });
+
+      // Clear stream reference
+      streamRef.current = null;
+    }
+
+    // Pause and clear video AFTER stopping tracks
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+        // Force load to clear any buffered data
+        videoRef.current.load();
+        console.log('📹 Video paused, cleared, and reloaded');
+      } catch (err) {
+        console.error('❌ Error clearing video:', err);
+      }
+    }
+
+    console.log('✅ Manual cleanup complete');
+  }, []);
+
+  // Store cleanup function in ref for use in callbacks
+  cleanupCameraRef.current = cleanupCamera;
 
   // Switch camera
   const switchCamera = () => {
@@ -702,6 +825,12 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     }
   };
 
+  // Handle close with explicit cleanup
+  const handleClose = () => {
+    cleanupCamera();
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black">
       {/* Header */}
@@ -737,7 +866,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
           {/* Close button */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 rounded-full bg-white/20 active:bg-white/30"
             aria-label="Close scanner"
           >

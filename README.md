@@ -1,13 +1,14 @@
-# Medical Inventory Tracker
+# MediVault
 
-A mobile-first web application for tracking medical inventory with offline support and Google Sheets sync. Built with React, TypeScript, and Tailwind CSS.
+A modern, mobile-first medical inventory management app with barcode scanning, offline support, and planned cloud sync. Built with React 19, TypeScript, and ZXing-JS.
 
 ## Features
 
-### Current (v0.1.0 - MVP)
+### Current (v0.2.0 - MVP with Scanning)
 - ✅ **Mobile-first UI** - Optimized for touch and small screens
 - ✅ **Offline-first storage** - IndexedDB with Dexie.js
 - ✅ **Item management** - Create, view, search inventory items
+- ✅ **Barcode scanning** - ZXing-JS with adaptive performance optimization
 - ✅ **Photo upload** - Capture and compress item photos
 - ✅ **Categories & locations** - Organize items efficiently
 - ✅ **Low stock alerts** - Visual indicators for low quantity items
@@ -15,7 +16,6 @@ A mobile-first web application for tracking medical inventory with offline suppo
 - ✅ **Responsive design** - Works on any device
 
 ### Coming Soon
-- 🔲 Barcode/QR scanning with Quagga2
 - 🔲 Google Sheets sync for cloud backup
 - 🔲 PWA support for offline usage
 - 🔲 Export/import data (CSV)
@@ -29,6 +29,7 @@ A mobile-first web application for tracking medical inventory with offline suppo
 - **Styling**: Tailwind CSS 3
 - **Build Tool**: Vite 7
 - **Database**: IndexedDB (via Dexie.js)
+- **Barcode Scanning**: ZXing-JS (@zxing/library + @zxing/browser)
 - **Icons**: Lucide React
 - **Package Manager**: npm (or bun)
 
@@ -44,7 +45,7 @@ A mobile-first web application for tracking medical inventory with offline suppo
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd medical-inventory-tracker
+cd medivault
 ```
 
 2. Install dependencies:
@@ -77,7 +78,7 @@ src/
 ├── components/
 │   ├── layout/          # Header, BottomNav, Layout
 │   ├── items/           # ItemCard, ItemList components
-│   ├── scanner/         # Barcode scanner (coming soon)
+│   ├── scanner/         # Barcode scanner (ZXing-JS)
 │   ├── photos/          # Photo upload components
 │   └── common/          # Reusable UI components (Button, Input, etc.)
 ├── lib/
@@ -154,7 +155,7 @@ Create a `.env` file in the root directory (see `.env.example`):
 ```env
 VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 VITE_GOOGLE_API_KEY=your-api-key
-VITE_APP_NAME=Medical Inventory Tracker
+VITE_APP_NAME=MediVault
 ```
 
 ## Contributing
@@ -167,14 +168,15 @@ MIT
 
 ## Roadmap
 
-### Phase 1: Core Features (Current)
+### Phase 1: Core Features ✅ Complete
 - ✅ Basic CRUD operations
 - ✅ Mobile-first UI
 - ✅ Search and filtering
 - ✅ Photo upload
+- ✅ Barcode/QR scanning (ZXing-JS)
 
-### Phase 2: Scanning & Sync
-- 🔲 Barcode/QR scanning
+### Phase 2: Sync & Cloud (Current)
+- 🔲 Item detail view and editing
 - 🔲 Google Sheets OAuth
 - 🔲 Two-way sync engine
 - 🔲 Offline queue
