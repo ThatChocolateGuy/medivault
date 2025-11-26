@@ -407,8 +407,12 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           if (hasAutofocus) {
             console.log(`✅ Found camera with autofocus: ${device.label || device.deviceId}`);
             // Cache the best camera for instant initialization next time
-            localStorage.setItem(cacheKey, device.deviceId);
-            console.log(`💾 Cached camera for future use`);
+            try {
+              localStorage.setItem(cacheKey, device.deviceId);
+              console.log(`💾 Cached camera for future use`);
+            } catch (err) {
+              console.warn('⚠️ Could not cache camera deviceId:', err);
+            }
             return { deviceId: device.deviceId, fromCache: false };
           } else {
             console.log(`⏭️ Skipping ${device.label || device.deviceId} (no continuous autofocus)`);
