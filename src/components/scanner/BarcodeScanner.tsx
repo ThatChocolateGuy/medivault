@@ -46,16 +46,15 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
   // Detection history for multi-read verification with consensus voting
   const detectionHistoryRef = useRef<Array<{ code: string; timestamp: number }>>([]);
-  const REQUIRED_MATCHES = 3;          // Require 3 matching reads for accuracy
-  const DETECTION_WINDOW = 1500;       // Within 1.5 seconds
-  const CONSENSUS_THRESHOLD = 0.67;    // 67% of reads must agree (2 of 3 minimum)
+  const REQUIRED_MATCHES = 2;          // Require 2 matching reads (faster detection)
+  const DETECTION_WINDOW = 1000;       // Within 1 second (faster)
+  const CONSENSUS_THRESHOLD = 0.67;    // 67% of reads must agree
 
-  // Adaptive parameters (temporarily reduced for better detection)
-  const MIN_FPS = 3;
-  const MAX_FPS = 5;
+  // Fixed FPS for consistent performance on mobile
+  const SCAN_FPS = 4;
 
-  // Fixed resolution for consistent performance (no mid-scan upgrades)
-  const SCAN_RESOLUTION = { width: 1280, height: 720 };
+  // Optimized resolution for faster processing (25% less data than 1280x720)
+  const SCAN_RESOLUTION = { width: 960, height: 540 };
 
   // Get device capabilities on mount
   useEffect(() => {
@@ -89,13 +88,10 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     detectCapabilities();
   }, []);
 
-  // Calculate optimal FPS based on device capabilities
-  const calculateOptimalFPS = useCallback((caps: DeviceCapabilities): number => {
-    if (caps.hasLowBattery) return MIN_FPS;
-    if (caps.isMobile && caps.cpuCores <= 4) return 7;
-    if (caps.cpuCores >= 8) return MAX_FPS;
-    return 8;
-  }, [MIN_FPS, MAX_FPS]);
+  // Use fixed FPS for predictable performance
+  const calculateOptimalFPS = useCallback((): number => {
+    return SCAN_FPS;
+  }, []);
 
   // Process single frame - decode from canvas with ROI
   const processFrame = useCallback(async () => {
@@ -126,9 +122,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       // Draw current video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Calculate ROI (center 60% of frame)
-      const roiWidth = Math.floor(canvas.width * 0.6);
-      const roiHeight = Math.floor(canvas.height * 0.6);
+      // Calculate ROI (center 50% of frame for better performance)
+      const roiWidth = Math.floor(canvas.width * 0.5);
+      const roiHeight = Math.floor(canvas.height * 0.5);
       const roiX = Math.floor((canvas.width - roiWidth) / 2);
       const roiY = Math.floor((canvas.height - roiHeight) / 2);
 
@@ -318,22 +314,35 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   // Helper function to find best camera with autofocus capability
   const findBestCamera = useCallback(async (targetFacingMode: 'user' | 'environment'): Promise<string | undefined> => {
     try {
+      // Request permission first to populate labels
+      const permissionStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: targetFacingMode } });
+      permissionStream.getTracks().forEach(t => t.stop());
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(d => d.kind === 'videoinput');
 
       console.log('📷 Available cameras:', videoDevices.map(d => d.label || d.deviceId));
 
-      // Filter cameras by facing mode FIRST
+      // Filter cameras by facing mode
       const filteredDevices = videoDevices.filter(device => {
         const label = device.label.toLowerCase();
-        if (!label) return true; // Include unlabeled cameras
+        const deviceId = device.deviceId.toLowerCase();
+
+        // On first boot with empty labels, prefer camera with "0" in deviceId (usually main camera)
+        if (!label && targetFacingMode === 'environment') {
+          return deviceId.includes('0') || deviceId.includes('back');
+        }
+        if (!label && targetFacingMode === 'user') {
+          return deviceId.includes('1') || deviceId.includes('front');
+        }
 
         if (targetFacingMode === 'environment') {
           return label.includes('back') || label.includes('rear');
         } else if (targetFacingMode === 'user') {
           return label.includes('front') || label.includes('user');
         }
-        return true;
+        return false;
       });
 
       console.log(`📷 Filtered to ${filteredDevices.length} ${targetFacingMode} cameras`);
@@ -440,7 +449,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         ]);
 
         // Calculate optimal FPS based on device capabilities
-        const optimalFPS = calculateOptimalFPS(deviceCapabilities);
+        const optimalFPS = calculateOptimalFPS();
         setScanStats(prev => ({ ...prev, currentFPS: optimalFPS, resolution: SCAN_RESOLUTION }));
 
         // Find best camera with autofocus capability
@@ -710,7 +719,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
       console.log('✅ Cleanup complete');
     };
-  }, [facingMode, deviceCapabilities, calculateOptimalFPS, startScanningLoop, findBestCamera]);
+  }, [facingMode, calculateOptimalFPS, startScanningLoop, findBestCamera]);
 
   // Explicit cleanup function for immediate camera release
   const cleanupCamera = useCallback(() => {
@@ -903,7 +912,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
               <div
                 className="relative"
                 style={{
-                  width: '60%',
+                  width: '50%',
                   maxWidth: '400px',
                   aspectRatio: '16/9'
                 }}
