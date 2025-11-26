@@ -332,7 +332,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           return { deviceId: cachedDeviceId, fromCache: true };
         } catch (err) {
           console.warn('⚠️ Cached camera no longer available, finding new one');
-          localStorage.removeItem(cacheKey);
+          try {
+            localStorage.removeItem(cacheKey);
+          } catch (err) {
+            console.warn('⚠️ Could not remove invalid cache entry');
+          }
         }
       }
 
