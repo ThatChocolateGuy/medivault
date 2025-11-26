@@ -315,7 +315,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   const findBestCamera = useCallback(async (targetFacingMode: 'user' | 'environment'): Promise<{ deviceId: string | undefined; fromCache: boolean }> => {
     try {
       // Check cache first for instant initialization on subsequent opens
-      const cacheKey = `medivault_best_camera_${targetFacingMode}`;
+      const cacheKey = `medivault_best_camera_v1_${targetFacingMode}`;
       const cachedDeviceId = localStorage.getItem(cacheKey);
 
       if (cachedDeviceId) {
@@ -327,6 +327,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             video: { deviceId: { exact: cachedDeviceId } }
           });
           testStream.getTracks().forEach(t => t.stop());
+          if (abortInitRef.current) {
+            return { deviceId: undefined, fromCache: false };
+          }
           await new Promise(resolve => setTimeout(resolve, 50));
           console.log('✅ Cached camera verified');
           return { deviceId: cachedDeviceId, fromCache: true };
