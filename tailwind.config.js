@@ -23,9 +23,9 @@ export default {
       },
       keyframes: {
         'scan-line': {
-          '0%': { top: '0%' },
-          '50%': { top: '100%' },
-          '100%': { top: '0%' },
+          '0%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(var(--scan-height))' },
+          '100%': { transform: 'translateY(0)' },
         },
       },
       animation: {
