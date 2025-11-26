@@ -327,6 +327,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             video: { deviceId: { exact: cachedDeviceId } }
           });
           testStream.getTracks().forEach(t => t.stop());
+          await new Promise(resolve => setTimeout(resolve, 50));
           console.log('✅ Cached camera verified');
           return { deviceId: cachedDeviceId, fromCache: true };
         } catch (err) {
