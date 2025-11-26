@@ -316,7 +316,12 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
     try {
       // Check cache first for instant initialization on subsequent opens
       const cacheKey = `medivault_best_camera_v1_${targetFacingMode}`;
-      const cachedDeviceId = localStorage.getItem(cacheKey);
+      let cachedDeviceId: string | null = null;
+      try {
+        cachedDeviceId = localStorage.getItem(cacheKey);
+      } catch {
+        console.warn('⚠️ localStorage unavailable, skipping cache');
+      }
 
       if (cachedDeviceId) {
         console.log(`✨ Using cached camera: ${cachedDeviceId}`);
