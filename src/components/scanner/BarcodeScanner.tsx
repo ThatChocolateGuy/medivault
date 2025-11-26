@@ -914,9 +914,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
                 style={{
                   width: '50%',
                   maxWidth: '400px',
-                  aspectRatio: '16/9',
-                  '--scan-height': '100%'
-                } as React.CSSProperties}
+                  aspectRatio: '16/9'
+                }}
               >
                 {/* Corner guides */}
                 <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-green-500" />
@@ -926,9 +925,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
                 {/* Scanning line animation - GPU accelerated with transform */}
                 <div
-                  className="absolute top-0 left-0 right-0 h-0.5 bg-green-500 animate-scan-line"
+                  className="absolute top-0 left-0 right-0 h-full animate-scan-line"
                   style={{ willChange: 'transform' }}
-                />
+                >
+                  <div className="h-0.5 bg-green-500" />
+                </div>
               </div>
             </div>
 

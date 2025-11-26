@@ -24,7 +24,7 @@ export default {
       keyframes: {
         'scan-line': {
           '0%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(var(--scan-height))' },
+          '50%': { transform: 'translateY(100%)' },
           '100%': { transform: 'translateY(0)' },
         },
       },
