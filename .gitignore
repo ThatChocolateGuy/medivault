@@ -27,3 +27,5 @@ debug-*.js
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
