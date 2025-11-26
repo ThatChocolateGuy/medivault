@@ -312,12 +312,48 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
   }, [processFrame]);
 
   // Helper function to find best camera with autofocus capability
-  const findBestCamera = useCallback(async (targetFacingMode: 'user' | 'environment'): Promise<string | undefined> => {
+  const findBestCamera = useCallback(async (targetFacingMode: 'user' | 'environment'): Promise<{ deviceId: string | undefined; fromCache: boolean }> => {
     try {
+      // Check cache first for instant initialization on subsequent opens
+      const cacheKey = `medivault_best_camera_v1_${targetFacingMode}`;
+      let cachedDeviceId: string | null = null;
+      try {
+        cachedDeviceId = localStorage.getItem(cacheKey);
+      } catch {
+        console.warn('⚠️ localStorage unavailable, skipping cache');
+      }
+
+      if (cachedDeviceId) {
+        console.log(`✨ Using cached camera: ${cachedDeviceId}`);
+
+        // Verify cached camera still exists and works
+        try {
+          const testStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: cachedDeviceId } }
+          });
+          testStream.getTracks().forEach(t => t.stop());
+          if (abortInitRef.current) {
+            return { deviceId: undefined, fromCache: false };
+          }
+          await new Promise(resolve => setTimeout(resolve, 50));
+          console.log('✅ Cached camera verified');
+          return { deviceId: cachedDeviceId, fromCache: true };
+        } catch (err) {
+          console.warn('⚠️ Cached camera no longer available, finding new one');
+          try {
+            localStorage.removeItem(cacheKey);
+          } catch (err) {
+            console.warn('⚠️ Could not remove invalid cache entry');
+          }
+        }
+      }
+
+      console.log('🔍 Finding best camera (first time setup)...');
+
       // Request permission first to populate labels
       const permissionStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: targetFacingMode } });
       permissionStream.getTracks().forEach(t => t.stop());
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms
 
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(d => d.kind === 'videoinput');
@@ -374,11 +410,18 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           testStream.getTracks().forEach(t => t.stop());
 
           // Wait for camera to fully release
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms
 
           if (hasAutofocus) {
             console.log(`✅ Found camera with autofocus: ${device.label || device.deviceId}`);
-            return device.deviceId;
+            // Cache the best camera for instant initialization next time
+            try {
+              localStorage.setItem(cacheKey, device.deviceId);
+              console.log(`💾 Cached camera for future use`);
+            } catch (err) {
+              console.warn('⚠️ Could not cache camera deviceId:', err);
+            }
+            return { deviceId: device.deviceId, fromCache: false };
           } else {
             console.log(`⏭️ Skipping ${device.label || device.deviceId} (no continuous autofocus)`);
           }
@@ -388,10 +431,10 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       }
 
       console.warn('⚠️ No camera with continuous autofocus found, using default');
-      return undefined;
+      return { deviceId: undefined, fromCache: false };
     } catch (err) {
       console.error('❌ Camera enumeration failed:', err);
-      return undefined;
+      return { deviceId: undefined, fromCache: false };
     }
   }, []);
 
@@ -453,7 +496,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
         setScanStats(prev => ({ ...prev, currentFPS: optimalFPS, resolution: SCAN_RESOLUTION }));
 
         // Find best camera with autofocus capability
-        const bestCameraId = await findBestCamera(facingMode);
+        const { deviceId: bestCameraId, fromCache } = await findBestCamera(facingMode);
 
         // Check if cleanup was called during camera enumeration
         if (abortInitRef.current) {
@@ -461,9 +504,9 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           return;
         }
 
-        // Wait for any test cameras to fully release hardware
-        if (bestCameraId) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for any test cameras to fully release hardware (only needed if we tested cameras)
+        if (bestCameraId && !fromCache) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 200ms, only when testing
           console.log('⏳ Camera hardware released, requesting final camera...');
         }
 
