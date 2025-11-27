@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Edit2, Trash2, Package, MapPin, Calendar, Camera, X } from 'lucide-react';
+import { Edit2, Trash2, Package, MapPin, Calendar, Camera, X, Minus, Plus } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -9,6 +9,7 @@ import {
   getItemById,
   updateItem,
   deleteItem,
+  adjustQuantity,
   getAllCategories,
   getAllLocations,
 } from '../lib/db/operations';
@@ -26,6 +27,8 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
 
@@ -152,6 +155,24 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
     } catch (error) {
       console.error('Failed to delete item:', error);
       alert('Failed to delete item. Please try again.');
+    }
+  };
+
+  const handleQuantityAdjust = async (delta: number) => {
+    if (!item) return;
+
+    setIsAdjusting(true);
+    setAdjustError(null);
+
+    try {
+      await adjustQuantity(itemId, delta);
+      await loadItem(); // Reload to get updated quantity
+    } catch (error) {
+      console.error('Failed to adjust quantity:', error);
+      setAdjustError('Failed to adjust quantity. Please try again.');
+      setTimeout(() => setAdjustError(null), 3000); // Clear error after 3 seconds
+    } finally {
+      setIsAdjusting(false);
     }
   };
 
@@ -335,20 +356,41 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Quantity */}
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-gray-400" />
-                <div>
+              {/* Quantity with +/- controls */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-5 h-5 text-gray-400" />
                   <p className="text-sm text-gray-500">Quantity</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {item.quantity}
-                    {item.minQuantity !== undefined && (
-                      <span className="ml-2 text-sm text-gray-500 font-normal">
-                        (min: {item.minQuantity})
-                      </span>
-                    )}
-                  </p>
                 </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleQuantityAdjust(-1)}
+                    disabled={isAdjusting || item.quantity === 0}
+                    className="flex items-center justify-center w-11 h-11 rounded-lg border-2 border-gray-300 bg-white text-gray-700 active:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex-1 text-center">
+                    <p className="text-3xl font-bold text-gray-900">{item.quantity}</p>
+                    {item.minQuantity !== undefined && (
+                      <p className="text-xs text-gray-500 mt-1">(min: {item.minQuantity})</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleQuantityAdjust(1)}
+                    disabled={isAdjusting}
+                    className="flex items-center justify-center w-11 h-11 rounded-lg border-2 border-primary-500 bg-primary-50 text-primary-700 active:bg-primary-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {adjustError && (
+                  <p className="mt-2 text-sm text-red-600">{adjustError}</p>
+                )}
               </div>
 
               {/* Category */}
