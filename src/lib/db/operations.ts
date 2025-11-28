@@ -241,7 +241,9 @@ export async function updateLocation(id: number, updates: { name?: string; descr
     }
   });
   if (newName !== oldName) {
-    console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
+    }
   }
 }
 
