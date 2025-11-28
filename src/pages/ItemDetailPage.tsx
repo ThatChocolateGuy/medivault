@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Edit2, Trash2, Package, MapPin, Calendar, Camera, X, Minus, Plus } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/common/Button';
@@ -31,6 +31,7 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
   const [adjustError, setAdjustError] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
+  const adjustErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -42,6 +43,15 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
     notes: '',
     photos: [] as string[],
   });
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (adjustErrorTimeoutRef.current) {
+        clearTimeout(adjustErrorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     loadItem();
@@ -164,13 +174,18 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
     setIsAdjusting(true);
     setAdjustError(null);
 
+    // Clear any existing timeout
+    if (adjustErrorTimeoutRef.current) {
+      clearTimeout(adjustErrorTimeoutRef.current);
+    }
+
     try {
       await adjustQuantity(itemId, delta);
       await loadItem(); // Reload to get updated quantity
     } catch (error) {
       console.error('Failed to adjust quantity:', error);
       setAdjustError('Failed to adjust quantity. Please try again.');
-      setTimeout(() => setAdjustError(null), 3000); // Clear error after 3 seconds
+      adjustErrorTimeoutRef.current = setTimeout(() => setAdjustError(null), 3000); // Clear error after 3 seconds
     } finally {
       setIsAdjusting(false);
     }
