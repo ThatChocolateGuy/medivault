@@ -148,7 +148,7 @@ export async function updateCategory(id: number, updates: { name?: string; color
     const itemsUpdated = await db.items
       .where('category').equals(oldName)
       .modify({ category: newName });
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
     }
   }
@@ -172,11 +172,7 @@ export async function deleteCategory(id: number) {
 
   await db.categories.delete(id);
   // Add to sync queue to track category deletion
-  await addToSyncQueue({
-    type: 'category',
-    action: 'delete',
-    data: { id, name: category.name }
-  });
+  await addToSyncQueue('category', id, 'delete', { id, name: category.name });
 }
 
 export async function checkCategoryInUse(name: string): Promise<{ inUse: boolean; count: number }> {
@@ -234,7 +230,9 @@ export async function updateLocation(id: number, updates: { name?: string; descr
     const itemsUpdated = await db.items
       .where('location').equals(oldName)
       .modify({ location: newName });
-    console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
+    if (import.meta.env.DEV) {
+      console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
+    }
   }
 }
 
