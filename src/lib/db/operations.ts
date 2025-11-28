@@ -223,17 +223,22 @@ export async function updateLocation(id: number, updates: { name?: string; descr
     }
   }
 
-  // Update the location
-  await db.locations.update(id, {
-    ...(updates.name !== undefined && { name: newName }),
-    ...(updates.description !== undefined && { description: trimmedDescription }),
-  });
+  // Update the location and items in a transaction
+  let itemsUpdated = 0;
+  await db.transaction('rw', db.locations, db.items, async () => {
+    await db.locations.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.description !== undefined && { description: trimmedDescription }),
+    });
 
-  // If name changed, update all items using the old location name
+    // If name changed, update all items using the old location name
+    if (newName !== oldName) {
+      itemsUpdated = await db.items
+        .where('location').equals(oldName)
+        .modify({ location: newName });
+    }
+  });
   if (newName !== oldName) {
-    const itemsUpdated = await db.items
-      .where('location').equals(oldName)
-      .modify({ location: newName });
     console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
   }
 }
