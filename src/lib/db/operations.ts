@@ -157,22 +157,24 @@ export async function updateCategory(id: number, updates: { name?: string; color
 }
 
 export async function deleteCategory(id: number) {
-  const category = await db.categories.get(id);
-  if (!category) throw new Error('Category not found');
+  await db.transaction('rw', db.categories, db.items, async () => {
+    const category = await db.categories.get(id);
+    if (!category) throw new Error('Category not found');
 
-  // Check if category is in use
-  const itemCount = await db.items.where('category').equals(category.name).count();
-  if (itemCount > 0) {
-    throw new Error(`Cannot delete category. ${itemCount} item(s) are using it.`);
-  }
+    // Check if category is in use
+    const itemCount = await db.items.where('category').equals(category.name).count();
+    if (itemCount > 0) {
+      throw new Error(`Cannot delete category. ${itemCount} item(s) are using it.`);
+    }
 
-  // Check if it's the last category
-  const totalCategories = await db.categories.count();
-  if (totalCategories <= 1) {
-    throw new Error('Cannot delete the last category');
-  }
+    // Check if it's the last category
+    const totalCategories = await db.categories.count();
+    if (totalCategories <= 1) {
+      throw new Error('Cannot delete the last category');
+    }
 
-  await db.categories.delete(id);
+    await db.categories.delete(id);
+  });
   // Add to sync queue to track category deletion
   await addToSyncQueue({
     type: 'category',
