@@ -172,9 +172,9 @@ export async function deleteCategory(id: number) {
     }
 
     await db.categories.delete(id);
+    // Add to sync queue to track category deletion
+    await addToSyncQueue('category', id, 'delete', { id, name: category.name });
   });
-  // Add to sync queue to track category deletion
-  await addToSyncQueue('category', id, 'delete', { id, name: category.name });
 }
 
 export async function checkCategoryInUse(name: string): Promise<{ inUse: boolean; count: number }> {
