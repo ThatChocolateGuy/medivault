@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -8,6 +8,11 @@ interface ModalProps {
   children: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg';
   closeOnBackdrop?: boolean;
+  /**
+   * Optional custom ID for the modal title. If not provided, a unique ID will be generated.
+   * Useful for accessibility when you need to reference the modal title from outside.
+   */
+  titleId?: string;
 }
 
 export function Modal({
@@ -17,7 +22,12 @@ export function Modal({
   children,
   maxWidth = 'md',
   closeOnBackdrop = true,
+  titleId,
 }: ModalProps) {
+  // Generate a unique ID for the modal title if not provided
+  const generatedTitleId = useId();
+  const modalTitleId = titleId || generatedTitleId;
+
   // Handle escape key press
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -63,12 +73,15 @@ export function Modal({
       onClick={handleBackdropClick}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
         className={`bg-white rounded-lg shadow-xl w-full ${maxWidthClasses[maxWidth]} animate-slideIn`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <h2 id={modalTitleId} className="text-xl font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
