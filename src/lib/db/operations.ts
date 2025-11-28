@@ -139,19 +139,21 @@ export async function updateCategory(id: number, updates: { name?: string; color
 
   // Update the category
   await db.categories.update(id, {
-    ...(updates.name !== undefined && { name: newName }),
-    ...(updates.color !== undefined && { color: updates.color }),
-  });
+  // Update the category and items in a transaction
+  await db.transaction('rw', db.categories, db.items, async () => {
+    await db.categories.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.color !== undefined && { color: updates.color }),
+    });
 
-  // If name changed, update all items using the old category name
-  if (newName !== oldName) {
-    const itemsUpdated = await db.items
-      .where('category').equals(oldName)
-      .modify({ category: newName });
-    if (process.env.NODE_ENV === 'development') {
+    // If name changed, update all items using the old category name
+    if (newName !== oldName) {
+      const itemsUpdated = await db.items
+        .where('category').equals(oldName)
+        .modify({ category: newName });
       console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
     }
-  }
+  });
 }
 
 export async function deleteCategory(id: number) {
