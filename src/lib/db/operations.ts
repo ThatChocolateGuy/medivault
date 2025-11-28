@@ -148,7 +148,9 @@ export async function updateCategory(id: number, updates: { name?: string; color
     const itemsUpdated = await db.items
       .where('category').equals(oldName)
       .modify({ category: newName });
-    console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+    }
   }
 }
 
