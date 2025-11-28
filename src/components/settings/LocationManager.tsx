@@ -37,6 +37,17 @@ export function LocationManager({ onClose }: LocationManagerProps) {
     loadLocations();
   }, []);
 
+  // Clear success message after 3 seconds with proper cleanup
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    if (successMessage) {
+      timeoutId = setTimeout(() => setSuccessMessage(null), 3000);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [successMessage]);
+
   const loadLocations = async () => {
     setLoading(true);
     try {
@@ -106,9 +117,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
       await loadLocations();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save location');
     } finally {
@@ -127,9 +135,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
       setSuccessMessage('Location deleted successfully');
       await loadLocations();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete location');
       setIsSaving(false);

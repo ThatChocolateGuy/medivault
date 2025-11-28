@@ -48,6 +48,17 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
     loadCategories();
   }, []);
 
+  // Clear success message after 3 seconds with proper cleanup
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    if (successMessage) {
+      timeoutId = setTimeout(() => setSuccessMessage(null), 3000);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [successMessage]);
+
   const loadCategories = async () => {
     setLoading(true);
     try {
@@ -117,9 +128,6 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
 
       await loadCategories();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save category');
     } finally {
@@ -138,9 +146,6 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
       setSuccessMessage('Category deleted successfully');
       await loadCategories();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete category');
       setIsSaving(false);

@@ -137,8 +137,6 @@ export async function updateCategory(id: number, updates: { name?: string; color
     }
   }
 
-  // Update the category
-  await db.categories.update(id, {
   // Update the category and items in a transaction
   await db.transaction('rw', db.categories, db.items, async () => {
     await db.categories.update(id, {
@@ -174,12 +172,6 @@ export async function deleteCategory(id: number) {
     }
 
     await db.categories.delete(id);
-  });
-  // Add to sync queue to track category deletion
-  await addToSyncQueue({
-    type: 'category',
-    action: 'delete',
-    data: { id, name: category.name }
   });
 }
 
@@ -242,10 +234,8 @@ export async function updateLocation(id: number, updates: { name?: string; descr
         .modify({ location: newName });
     }
   });
-  if (newName !== oldName) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
-    }
+  if (newName !== oldName && itemsUpdated > 0) {
+    console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
   }
 }
 
