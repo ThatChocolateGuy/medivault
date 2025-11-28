@@ -137,40 +137,42 @@ export async function updateCategory(id: number, updates: { name?: string; color
     }
   }
 
-  // Update the category
-  await db.categories.update(id, {
-    ...(updates.name !== undefined && { name: newName }),
-    ...(updates.color !== undefined && { color: updates.color }),
-  });
+  // Update the category and items in a transaction
+  await db.transaction('rw', db.categories, db.items, async () => {
+    await db.categories.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.color !== undefined && { color: updates.color }),
+    });
 
-  // If name changed, update all items using the old category name
-  if (newName !== oldName) {
-    const itemsUpdated = await db.items
-      .where('category').equals(oldName)
-      .modify({ category: newName });
-    if (import.meta.env.DEV) {
+    // If name changed, update all items using the old category name
+    if (newName !== oldName) {
+      const itemsUpdated = await db.items
+        .where('category').equals(oldName)
+        .modify({ category: newName });
       console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
     }
-  }
+  });
 }
 
 export async function deleteCategory(id: number) {
-  const category = await db.categories.get(id);
-  if (!category) throw new Error('Category not found');
+  await db.transaction('rw', db.categories, db.items, async () => {
+    const category = await db.categories.get(id);
+    if (!category) throw new Error('Category not found');
 
-  // Check if category is in use
-  const itemCount = await db.items.where('category').equals(category.name).count();
-  if (itemCount > 0) {
-    throw new Error(`Cannot delete category. ${itemCount} item(s) are using it.`);
-  }
+    // Check if category is in use
+    const itemCount = await db.items.where('category').equals(category.name).count();
+    if (itemCount > 0) {
+      throw new Error(`Cannot delete category. ${itemCount} item(s) are using it.`);
+    }
 
-  // Check if it's the last category
-  const totalCategories = await db.categories.count();
-  if (totalCategories <= 1) {
-    throw new Error('Cannot delete the last category');
-  }
+    // Check if it's the last category
+    const totalCategories = await db.categories.count();
+    if (totalCategories <= 1) {
+      throw new Error('Cannot delete the last category');
+    }
 
-  await db.categories.delete(id);
+    await db.categories.delete(id);
+  });
   // Add to sync queue to track category deletion
   await addToSyncQueue('category', id, 'delete', { id, name: category.name });
 }
@@ -219,17 +221,22 @@ export async function updateLocation(id: number, updates: { name?: string; descr
     }
   }
 
-  // Update the location
-  await db.locations.update(id, {
-    ...(updates.name !== undefined && { name: newName }),
-    ...(updates.description !== undefined && { description: trimmedDescription }),
-  });
+  // Update the location and items in a transaction
+  let itemsUpdated = 0;
+  await db.transaction('rw', db.locations, db.items, async () => {
+    await db.locations.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.description !== undefined && { description: trimmedDescription }),
+    });
 
-  // If name changed, update all items using the old location name
+    // If name changed, update all items using the old location name
+    if (newName !== oldName) {
+      itemsUpdated = await db.items
+        .where('location').equals(oldName)
+        .modify({ location: newName });
+    }
+  });
   if (newName !== oldName) {
-    const itemsUpdated = await db.items
-      .where('location').equals(oldName)
-      .modify({ location: newName });
     if (import.meta.env.DEV) {
       console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
     }
