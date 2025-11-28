@@ -137,8 +137,6 @@ export async function updateCategory(id: number, updates: { name?: string; color
     }
   }
 
-  // Update the category
-  await db.categories.update(id, {
   // Update the category and items in a transaction
   await db.transaction('rw', db.categories, db.items, async () => {
     await db.categories.update(id, {
@@ -151,16 +149,25 @@ export async function updateCategory(id: number, updates: { name?: string; color
       const itemsUpdated = await db.items
         .where('category').equals(oldName)
         .modify({ category: newName });
-      console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+      if (import.meta.env.DEV) {
+        console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+      }
     }
+  });
+
+  // Add to sync queue to track category update
+  await addToSyncQueue('category', id, 'update', {
+    ...updates,
+    oldName: oldName !== newName ? oldName : undefined,
   });
 }
 
 export async function deleteCategory(id: number) {
-  await db.transaction('rw', db.categories, db.items, async () => {
-    const category = await db.categories.get(id);
-    if (!category) throw new Error('Category not found');
+  // Get category before transaction for sync queue
+  const category = await db.categories.get(id);
+  if (!category) throw new Error('Category not found');
 
+  await db.transaction('rw', db.categories, db.items, async () => {
     // Check if category is in use
     const itemCount = await db.items.where('category').equals(category.name).count();
     if (itemCount > 0) {
@@ -175,12 +182,9 @@ export async function deleteCategory(id: number) {
 
     await db.categories.delete(id);
   });
+
   // Add to sync queue to track category deletion
-  await addToSyncQueue({
-    type: 'category',
-    action: 'delete',
-    data: { id, name: category.name }
-  });
+  await addToSyncQueue('category', id, 'delete', { id, name: category.name });
 }
 
 export async function checkCategoryInUse(name: string): Promise<{ inUse: boolean; count: number }> {
@@ -243,17 +247,24 @@ export async function updateLocation(id: number, updates: { name?: string; descr
     }
   });
   if (newName !== oldName) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
     }
   }
+
+  // Add to sync queue to track location update
+  await addToSyncQueue('location', id, 'update', {
+    ...updates,
+    oldName: oldName !== newName ? oldName : undefined,
+  });
 }
 
 export async function deleteLocation(id: number) {
-  await db.transaction('rw', db.locations, db.items, async () => {
-    const location = await db.locations.get(id);
-    if (!location) throw new Error('Location not found');
+  // Get location before transaction for sync queue
+  const location = await db.locations.get(id);
+  if (!location) throw new Error('Location not found');
 
+  await db.transaction('rw', db.locations, db.items, async () => {
     // Check if location is in use
     const itemCount = await db.items.where('location').equals(location.name).count();
     if (itemCount > 0) {
@@ -268,6 +279,9 @@ export async function deleteLocation(id: number) {
 
     await db.locations.delete(id);
   });
+
+  // Add to sync queue to track location deletion
+  await addToSyncQueue('location', id, 'delete', { id, name: location.name });
 }
 
 export async function checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }> {
