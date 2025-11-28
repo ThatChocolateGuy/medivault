@@ -43,9 +43,7 @@ export function LocationManager({ onClose }: LocationManagerProps) {
     if (successMessage) {
       timeoutId = setTimeout(() => setSuccessMessage(null), 3000);
     }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+    return () => clearTimeout(timeoutId);
   }, [successMessage]);
 
   const loadLocations = async () => {

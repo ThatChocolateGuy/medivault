@@ -236,7 +236,7 @@ export async function updateLocation(id: number, updates: { name?: string; descr
         .modify({ location: newName });
     }
   });
-  if (newName !== oldName && itemsUpdated > 0) {
+  if (newName !== oldName) {
     if (import.meta.env.DEV) {
       console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
     }

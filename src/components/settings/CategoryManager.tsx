@@ -54,9 +54,7 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
     if (successMessage) {
       timeoutId = setTimeout(() => setSuccessMessage(null), 3000);
     }
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+    return () => clearTimeout(timeoutId);
   }, [successMessage]);
 
   const loadCategories = async () => {
