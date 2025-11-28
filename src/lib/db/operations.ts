@@ -108,7 +108,7 @@ export async function updateCategory(id: number, updates: { name?: string; color
 
   // Validate name if provided
   if (trimmedName !== undefined) {
-    if (!trimmedName || trimmedName.length === 0) {
+    if (!trimmedName) {
       throw new Error('Category name cannot be empty');
     }
     if (trimmedName.length > 50) {
