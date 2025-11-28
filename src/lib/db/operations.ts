@@ -239,22 +239,24 @@ export async function updateLocation(id: number, updates: { name?: string; descr
 }
 
 export async function deleteLocation(id: number) {
-  const location = await db.locations.get(id);
-  if (!location) throw new Error('Location not found');
+  await db.transaction('rw', db.locations, db.items, async () => {
+    const location = await db.locations.get(id);
+    if (!location) throw new Error('Location not found');
 
-  // Check if location is in use
-  const itemCount = await db.items.where('location').equals(location.name).count();
-  if (itemCount > 0) {
-    throw new Error(`Cannot delete location. ${itemCount} item(s) are using it.`);
-  }
+    // Check if location is in use
+    const itemCount = await db.items.where('location').equals(location.name).count();
+    if (itemCount > 0) {
+      throw new Error(`Cannot delete location. ${itemCount} item(s) are using it.`);
+    }
 
-  // Check if it's the last location
-  const totalLocations = await db.locations.count();
-  if (totalLocations <= 1) {
-    throw new Error('Cannot delete the last location');
-  }
+    // Check if it's the last location
+    const totalLocations = await db.locations.count();
+    if (totalLocations <= 1) {
+      throw new Error('Cannot delete the last location');
+    }
 
-  await db.locations.delete(id);
+    await db.locations.delete(id);
+  });
 }
 
 export async function checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }> {
