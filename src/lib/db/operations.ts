@@ -192,7 +192,7 @@ export async function updateLocation(id: number, updates: { name?: string; descr
 
   // Validate name if provided
   if (trimmedName !== undefined) {
-    if (!trimmedName || trimmedName.length === 0) {
+    if (!trimmedName) {
       throw new Error('Location name cannot be empty');
     }
     if (trimmedName.length > 50) {
