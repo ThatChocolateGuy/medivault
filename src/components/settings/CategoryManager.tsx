@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
@@ -38,11 +38,33 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [itemCount, setItemCount] = useState(0);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
     color: COLOR_PALETTE[0].hex,
   });
+
+  // Cleanup success message timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Clear success message after 3 seconds
+  useEffect(() => {
+    if (successMessage) {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+      successTimeoutRef.current = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    }
+  }, [successMessage]);
 
   useEffect(() => {
     loadCategories();
@@ -117,9 +139,6 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
 
       await loadCategories();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save category');
     } finally {
@@ -138,9 +157,6 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
       setSuccessMessage('Category deleted successfully');
       await loadCategories();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete category');
       setIsSaving(false);
