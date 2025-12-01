@@ -138,7 +138,7 @@ export async function updateCategory(id: number, updates: { name?: string; color
   }
 
   // Update the category and items in a transaction
-  await db.transaction('rw', db.categories, db.items, async () => {
+  await db.transaction('rw', db.categories, db.items, db.syncQueue, async () => {
     await db.categories.update(id, {
       ...(updates.name !== undefined && { name: newName }),
       ...(updates.color !== undefined && { color: updates.color }),
@@ -149,13 +149,23 @@ export async function updateCategory(id: number, updates: { name?: string; color
       const itemsUpdated = await db.items
         .where('category').equals(oldName)
         .modify({ category: newName });
-      console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+      if (import.meta.env.DEV) {
+        console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+      }
     }
+
+    // Add to sync queue to track category update
+    await addToSyncQueue('category', id, 'update', {
+      id,
+      oldName,
+      newName,
+      color: updates.color,
+    });
   });
 }
 
 export async function deleteCategory(id: number) {
-  await db.transaction('rw', db.categories, db.items, async () => {
+  await db.transaction('rw', db.categories, db.items, db.syncQueue, async () => {
     const category = await db.categories.get(id);
     if (!category) throw new Error('Category not found');
 
@@ -223,7 +233,7 @@ export async function updateLocation(id: number, updates: { name?: string; descr
 
   // Update the location and items in a transaction
   let itemsUpdated = 0;
-  await db.transaction('rw', db.locations, db.items, async () => {
+  await db.transaction('rw', db.locations, db.items, db.syncQueue, async () => {
     await db.locations.update(id, {
       ...(updates.name !== undefined && { name: newName }),
       ...(updates.description !== undefined && { description: trimmedDescription }),
@@ -235,6 +245,14 @@ export async function updateLocation(id: number, updates: { name?: string; descr
         .where('location').equals(oldName)
         .modify({ location: newName });
     }
+
+    // Add to sync queue to track location update
+    await addToSyncQueue('location', id, 'update', {
+      id,
+      oldName,
+      newName,
+      description: trimmedDescription,
+    });
   });
   if (newName !== oldName) {
     if (import.meta.env.DEV) {
@@ -244,7 +262,7 @@ export async function updateLocation(id: number, updates: { name?: string; descr
 }
 
 export async function deleteLocation(id: number) {
-  await db.transaction('rw', db.locations, db.items, async () => {
+  await db.transaction('rw', db.locations, db.items, db.syncQueue, async () => {
     const location = await db.locations.get(id);
     if (!location) throw new Error('Location not found');
 
@@ -261,6 +279,8 @@ export async function deleteLocation(id: number) {
     }
 
     await db.locations.delete(id);
+    // Add to sync queue to track location deletion
+    await addToSyncQueue('location', id, 'delete', { id, name: location.name });
   });
 }
 

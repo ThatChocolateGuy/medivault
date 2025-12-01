@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Plus, Edit2, Trash2, MapPin } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
@@ -27,11 +27,33 @@ export function LocationManager({ onClose }: LocationManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [itemCount, setItemCount] = useState(0);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
   });
+
+  // Cleanup success message timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Clear success message after 3 seconds
+  useEffect(() => {
+    if (successMessage) {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+      successTimeoutRef.current = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    }
+  }, [successMessage]);
 
   useEffect(() => {
     loadLocations();
@@ -106,9 +128,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
 
       await loadLocations();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save location');
     } finally {
@@ -127,9 +146,6 @@ export function LocationManager({ onClose }: LocationManagerProps) {
       setSuccessMessage('Location deleted successfully');
       await loadLocations();
       handleClose();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete location');
       setIsSaving(false);
