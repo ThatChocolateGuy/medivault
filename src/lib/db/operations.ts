@@ -159,7 +159,7 @@ export async function updateCategory(id: number, updates: { name?: string; color
       id,
       oldName,
       newName,
-      color: updates.color,
+      ...(updates.color !== undefined && { color: updates.color }),
     });
   });
 }
@@ -251,7 +251,7 @@ export async function updateLocation(id: number, updates: { name?: string; descr
       id,
       oldName,
       newName,
-      description: trimmedDescription,
+      ...(updates.description !== undefined && { description: trimmedDescription }),
     });
   });
   if (newName !== oldName) {
