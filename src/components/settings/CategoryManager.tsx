@@ -168,6 +168,7 @@ export function CategoryManager({ onClose }: CategoryManagerProps) {
     setSelectedCategory(null);
     setFormData({ name: '', color: COLOR_PALETTE[0].hex });
     setError(null);
+    setIsSaving(false);
   };
 
   if (loading) {
