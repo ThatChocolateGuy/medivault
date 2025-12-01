@@ -157,6 +157,7 @@ export function LocationManager({ onClose }: LocationManagerProps) {
     setSelectedLocation(null);
     setFormData({ name: '', description: '' });
     setError(null);
+    setIsSaving(false);
   };
 
   if (loading) {
