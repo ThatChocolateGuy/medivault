@@ -99,6 +99,196 @@ export async function createLocation(name: string, description?: string) {
   });
 }
 
+export async function getCategoryById(id: number) {
+  return await db.categories.get(id);
+}
+
+export async function updateCategory(id: number, updates: { name?: string; color?: string }) {
+  const trimmedName = updates.name?.trim();
+
+  // Validate name if provided
+  if (trimmedName !== undefined) {
+    if (!trimmedName) {
+      throw new Error('Category name cannot be empty');
+    }
+    if (trimmedName.length > 50) {
+      throw new Error('Category name must be 50 characters or less');
+    }
+  }
+
+  // Validate color if provided
+  if (updates.color && !/^#[0-9A-Fa-f]{6}$/.test(updates.color)) {
+    throw new Error('Invalid color format. Use hex format like #3b82f6');
+  }
+
+  const category = await db.categories.get(id);
+  if (!category) throw new Error('Category not found');
+
+  const oldName = category.name;
+  const newName = trimmedName || oldName;
+
+  // Check for duplicate name (case-insensitive, excluding current category)
+  if (trimmedName && trimmedName !== oldName) {
+    const duplicate = await db.categories
+      .filter(c => c.name.toLowerCase() === trimmedName.toLowerCase() && c.id !== id)
+      .first();
+    if (duplicate) {
+      throw new Error('A category with this name already exists');
+    }
+  }
+
+  // Update the category and items in a transaction
+  await db.transaction('rw', db.categories, db.items, db.syncQueue, async () => {
+    await db.categories.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.color !== undefined && { color: updates.color }),
+    });
+
+    // If name changed, update all items using the old category name
+    if (newName !== oldName) {
+      const itemsUpdated = await db.items
+        .where('category').equals(oldName)
+        .modify({ category: newName });
+      if (import.meta.env.DEV) {
+        console.log(`Updated ${itemsUpdated} items from category "${oldName}" to "${newName}"`);
+      }
+    }
+
+    // Add to sync queue to track category update
+    await addToSyncQueue('category', id, 'update', {
+      id,
+      oldName,
+      newName,
+      ...(updates.color !== undefined && { color: updates.color }),
+    });
+  });
+}
+
+export async function deleteCategory(id: number) {
+  await db.transaction('rw', db.categories, db.items, db.syncQueue, async () => {
+    const category = await db.categories.get(id);
+    if (!category) throw new Error('Category not found');
+
+    // Check if category is in use
+    const itemCount = await db.items.where('category').equals(category.name).count();
+    if (itemCount > 0) {
+      throw new Error(`Cannot delete category. ${itemCount} item(s) are using it.`);
+    }
+
+    // Check if it's the last category
+    const totalCategories = await db.categories.count();
+    if (totalCategories <= 1) {
+      throw new Error('Cannot delete the last category');
+    }
+
+    await db.categories.delete(id);
+    // Add to sync queue to track category deletion
+    await addToSyncQueue('category', id, 'delete', { id, name: category.name });
+  });
+}
+
+export async function checkCategoryInUse(name: string): Promise<{ inUse: boolean; count: number }> {
+  const count = await db.items.where('category').equals(name).count();
+  return { inUse: count > 0, count };
+}
+
+export async function getLocationById(id: number) {
+  return await db.locations.get(id);
+}
+
+export async function updateLocation(id: number, updates: { name?: string; description?: string }) {
+  const trimmedName = updates.name?.trim();
+  const trimmedDescription = updates.description?.trim();
+
+  // Validate name if provided
+  if (trimmedName !== undefined) {
+    if (!trimmedName) {
+      throw new Error('Location name cannot be empty');
+    }
+    if (trimmedName.length > 50) {
+      throw new Error('Location name must be 50 characters or less');
+    }
+  }
+
+  // Validate description if provided
+  if (trimmedDescription && trimmedDescription.length > 200) {
+    throw new Error('Description must be 200 characters or less');
+  }
+
+  const location = await db.locations.get(id);
+  if (!location) throw new Error('Location not found');
+
+  const oldName = location.name;
+  const newName = trimmedName || oldName;
+
+  // Check for duplicate name (case-insensitive, excluding current location)
+  if (trimmedName && trimmedName !== oldName) {
+    const duplicate = await db.locations
+      .filter(l => l.name.toLowerCase() === trimmedName.toLowerCase() && l.id !== id)
+      .first();
+    if (duplicate) {
+      throw new Error('A location with this name already exists');
+    }
+  }
+
+  // Update the location and items in a transaction
+  let itemsUpdated = 0;
+  await db.transaction('rw', db.locations, db.items, db.syncQueue, async () => {
+    await db.locations.update(id, {
+      ...(updates.name !== undefined && { name: newName }),
+      ...(updates.description !== undefined && { description: trimmedDescription }),
+    });
+
+    // If name changed, update all items using the old location name
+    if (newName !== oldName) {
+      itemsUpdated = await db.items
+        .where('location').equals(oldName)
+        .modify({ location: newName });
+    }
+
+    // Add to sync queue to track location update
+    await addToSyncQueue('location', id, 'update', {
+      id,
+      oldName,
+      newName,
+      ...(updates.description !== undefined && { description: trimmedDescription }),
+    });
+  });
+  if (newName !== oldName) {
+    if (import.meta.env.DEV) {
+      console.log(`Updated ${itemsUpdated} items from location "${oldName}" to "${newName}"`);
+    }
+  }
+}
+
+export async function deleteLocation(id: number) {
+  await db.transaction('rw', db.locations, db.items, db.syncQueue, async () => {
+    const location = await db.locations.get(id);
+    if (!location) throw new Error('Location not found');
+
+    // Check if location is in use
+    const itemCount = await db.items.where('location').equals(location.name).count();
+    if (itemCount > 0) {
+      throw new Error(`Cannot delete location. ${itemCount} item(s) are using it.`);
+    }
+
+    // Check if it's the last location
+    const totalLocations = await db.locations.count();
+    if (totalLocations <= 1) {
+      throw new Error('Cannot delete the last location');
+    }
+
+    await db.locations.delete(id);
+    // Add to sync queue to track location deletion
+    await addToSyncQueue('location', id, 'delete', { id, name: location.name });
+  });
+}
+
+export async function checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }> {
+  const count = await db.items.where('location').equals(name).count();
+  return { inUse: count > 0, count };
+}
+
 // Low stock items
 export async function getLowStockItems(): Promise<InventoryItem[]> {
   return await db.items
