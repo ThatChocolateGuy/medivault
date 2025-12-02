@@ -17,27 +17,33 @@ async function addItem(
   }
 ) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Add' }).click();
-  await page.fill('input[name="name"]', itemData.name);
-  await page.fill('input[name="quantity"]', String(itemData.quantity));
+  await page.locator('nav').getByRole('button', { name: 'Add' }).click();
+  await expect(page.locator('h1')).toContainText('Add Item');
+
+  // Wait for form to be fully loaded and interactive
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500); // Small delay for form initialization
+
+  await page.getByLabel('Item Name', { exact: false }).fill(itemData.name);
+  await page.getByLabel('Quantity', { exact: false }).fill(String(itemData.quantity));
 
   if (itemData.minQuantity !== undefined) {
-    await page.fill('input[name="minQuantity"]', String(itemData.minQuantity));
+    await page.getByLabel('Min Quantity', { exact: false }).fill(String(itemData.minQuantity));
   }
 
   if (itemData.category) {
-    await page.selectOption('select[name="category"]', itemData.category);
+    await page.getByLabel('Category', { exact: false }).selectOption(itemData.category);
   }
 
   if (itemData.location) {
-    await page.selectOption('select[name="location"]', itemData.location);
+    await page.getByLabel('Location', { exact: false }).selectOption(itemData.location);
   }
 
   if (itemData.notes) {
-    await page.fill('textarea[name="notes"]', itemData.notes);
+    await page.getByPlaceholder('Additional notes').fill(itemData.notes);
   }
 
-  await page.click('button[type="submit"]');
+  await page.getByRole('button', { name: 'Add Item' }).click();
   await page.waitForURL('/');
 }
 
@@ -66,7 +72,7 @@ async function addPhotoToItem(page: Page, itemName: string) {
 // Helper to navigate to settings page
 async function goToSettings(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.locator('nav').getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('h1')).toContainText('Settings');
 }
 
@@ -380,13 +386,17 @@ test.describe('Export Functionality', () => {
       await expect(page.locator('text=No items to export')).toBeVisible();
 
       // Add an item
-      await page.getByRole('button', { name: 'Add' }).click();
-      await page.fill('input[name="name"]', 'Recovery Test');
-      await page.fill('input[name="quantity"]', '10');
-      await page.click('button[type="submit"]');
+      await page.locator('nav').getByRole('button', { name: 'Add' }).click();
+      await expect(page.locator('h1')).toContainText('Add Item');
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(500);
+      await page.getByLabel('Item Name', { exact: false }).fill('Recovery Test');
+      await page.getByLabel('Quantity', { exact: false }).fill('10');
+      await page.getByRole('button', { name: 'Add Item' }).click();
 
       // Navigate back to settings
-      await page.getByRole('button', { name: 'Settings' }).click();
+      await page.locator('nav').getByRole('button', { name: 'Settings' }).click();
+      await expect(page.locator('h1')).toContainText('Settings');
 
       // Second export attempt (should succeed)
       const downloadPromise = page.waitForEvent('download');
