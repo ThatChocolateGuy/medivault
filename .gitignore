@@ -29,3 +29,7 @@ debug-*.js
 *.sw?
 
 .vercel
+
+# Playwright
+playwright-report
+test-results
