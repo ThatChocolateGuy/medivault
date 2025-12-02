@@ -1,9 +1,35 @@
 import JSZip from 'jszip';
 import { type InventoryItem } from '../db';
-import { escapeCSVField } from './csv';
+import { escapeCSVField, generateTimestamp } from './csv';
+
+/**
+ * Allowed MIME types for image export
+ */
+const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
+/**
+ * Gets file extension from MIME type
+ */
+export function getExtensionFromMimeType(mimeType: string): string {
+  const extensions: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+  };
+  return extensions[mimeType] || 'jpg';
+}
 
 /**
  * Converts a base64 data URL to a Blob
+ * Validates that the MIME type is an expected image format
  */
 function base64ToBlob(base64: string): Blob {
   // Extract the base64 data and MIME type
@@ -16,6 +42,11 @@ function base64ToBlob(base64: string): Blob {
   const mimeType = matches[1];
   const base64Data = matches[2];
 
+  // Validate MIME type is an expected image format
+  if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+    throw new Error(`Unsupported MIME type: ${mimeType}`);
+  }
+
   // Decode base64 to binary
   const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
@@ -25,20 +56,6 @@ function base64ToBlob(base64: string): Blob {
   }
 
   return new Blob([bytes], { type: mimeType });
-}
-
-/**
- * Gets file extension from MIME type
- */
-function getExtensionFromMimeType(mimeType: string): string {
-  const extensions: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/png': 'png',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-  };
-  return extensions[mimeType] || 'jpg';
 }
 
 /**
@@ -62,10 +79,13 @@ function convertItemsToCSVWithPhotos(items: InventoryItem[]): string {
 
   // Build CSV rows
   const rows = items.map((item) => {
-    // Generate photo filenames for this item
-    const photoFilenames = item.photos.map(
-      (_, index) => `photos/item-${item.id}-photo-${index + 1}.jpg`
-    );
+    // Generate photo filenames with correct extensions based on MIME type
+    const photoFilenames = item.photos.map((photo, index) => {
+      const matches = photo.match(/^data:([^;]+);base64,/);
+      const mimeType = matches ? matches[1] : 'image/jpeg';
+      const extension = getExtensionFromMimeType(mimeType);
+      return `photos/item-${item.id}-photo-${index + 1}.${extension}`;
+    });
 
     return [
       escapeCSVField(item.id),
@@ -141,11 +161,7 @@ export async function exportInventoryWithPhotos(
   });
 
   // Generate filename with timestamp
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[:.]/g, '-')
-    .slice(0, -5);
-  const filename = `medivault-backup-${timestamp}.zip`;
+  const filename = `medivault-backup-${generateTimestamp()}.zip`;
 
   // Trigger download
   const url = URL.createObjectURL(zipBlob);

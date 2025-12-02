@@ -93,7 +93,6 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
           `This export will be approximately ${sizeMB.toFixed(1)}MB. This may take a while to download. Continue?`
         );
         if (!proceed) {
-          setIsExportingWithPhotos(false);
           return;
         }
       }
@@ -197,6 +196,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
             <button
               onClick={handleExportData}
               disabled={isExporting}
+              aria-label="Export inventory data as CSV file"
               className="flex items-center gap-3 w-full p-4 text-left active:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Database className="w-5 h-5 text-gray-600" />
@@ -207,12 +207,17 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                 </p>
               </div>
               {isExporting && (
-                <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <span
+                  className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"
+                  role="status"
+                  aria-label="Exporting data"
+                />
               )}
             </button>
             <button
               onClick={handleExportWithPhotos}
               disabled={isExportingWithPhotos}
+              aria-label="Export inventory data with photos as ZIP archive"
               className="flex items-center gap-3 w-full p-4 text-left active:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Database className="w-5 h-5 text-gray-600" />
@@ -223,7 +228,11 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                 </p>
               </div>
               {isExportingWithPhotos && (
-                <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <span
+                  className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"
+                  role="status"
+                  aria-label="Creating backup with photos"
+                />
               )}
             </button>
             <button className="flex items-center gap-3 w-full p-4 text-left text-red-600 active:bg-red-50">

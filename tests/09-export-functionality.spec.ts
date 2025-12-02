@@ -95,7 +95,8 @@ test.describe('Export Functionality', () => {
       await expect(page.locator('text=No items to export')).toBeVisible();
 
       // Error should not auto-clear (only success messages do)
-      await page.waitForTimeout(1000);
+      // Wait for success message timeout duration to verify error persists
+      await page.waitForTimeout(3500);
       await expect(page.locator('text=No items to export')).toBeVisible();
     });
 
