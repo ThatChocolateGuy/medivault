@@ -5,7 +5,7 @@ import { type InventoryItem } from '../db';
  * - Wraps in quotes if contains comma, quote, or newline
  * - Doubles any quotes inside the value
  */
-function escapeCSVField(value: string | number | undefined): string {
+export function escapeCSVField(value: string | number | undefined): string {
   if (value === undefined || value === null) {
     return '';
   }

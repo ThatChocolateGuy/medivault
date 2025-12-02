@@ -10,6 +10,10 @@ import {
   downloadCSV,
   generateExportFilename,
 } from '../lib/utils/csv';
+import {
+  exportInventoryWithPhotos,
+  estimateExportSize,
+} from '../lib/utils/export';
 
 interface SettingsPageProps {
   onNavigate: (item: NavItem) => void;
@@ -19,6 +23,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showLocationManager, setShowLocationManager] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingWithPhotos, setIsExportingWithPhotos] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
 
@@ -55,6 +60,57 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
       );
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleExportWithPhotos = async () => {
+    setIsExportingWithPhotos(true);
+    setExportError(null);
+    setExportSuccess(false);
+
+    try {
+      // Fetch all items
+      const items = await getAllItems();
+
+      if (items.length === 0) {
+        setExportError('No items to export');
+        return;
+      }
+
+      // Check if there are any photos
+      const totalPhotos = items.reduce((sum, item) => sum + item.photos.length, 0);
+      if (totalPhotos === 0) {
+        setExportError('No photos to export. Use "Export Data" for CSV only.');
+        return;
+      }
+
+      // Estimate size
+      const sizeMB = estimateExportSize(items);
+
+      // Show warning for large exports (>50MB)
+      if (sizeMB > 50) {
+        const proceed = confirm(
+          `This export will be approximately ${sizeMB.toFixed(1)}MB. This may take a while to download. Continue?`
+        );
+        if (!proceed) {
+          setIsExportingWithPhotos(false);
+          return;
+        }
+      }
+
+      // Export with photos
+      await exportInventoryWithPhotos(items);
+
+      // Show success message
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
+    } catch (err) {
+      console.error('Export with photos failed:', err);
+      setExportError(
+        err instanceof Error ? err.message : 'Failed to export data with photos'
+      );
+    } finally {
+      setIsExportingWithPhotos(false);
     }
   };
 
@@ -151,6 +207,22 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                 </p>
               </div>
               {isExporting && (
+                <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              )}
+            </button>
+            <button
+              onClick={handleExportWithPhotos}
+              disabled={isExportingWithPhotos}
+              className="flex items-center gap-3 w-full p-4 text-left active:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Database className="w-5 h-5 text-gray-600" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Export with Photos</p>
+                <p className="text-sm text-gray-500">
+                  {isExportingWithPhotos ? 'Creating backup...' : 'Download as ZIP with photos'}
+                </p>
+              </div>
+              {isExportingWithPhotos && (
                 <span className="inline-block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
               )}
             </button>
