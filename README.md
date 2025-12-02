@@ -10,7 +10,10 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 - ✅ **Item management** - Create, view, search inventory items
 - ✅ **Barcode scanning** - ZXing-JS with adaptive performance optimization
 - ✅ **Photo upload** - Capture and compress item photos
-- ✅ **Categories & locations** - Organize items efficiently
+- ✅ **Categories & locations** - Organize items efficiently with full CRUD UI
+- ✅ **Category management** - Add, edit, delete categories with color coding
+- ✅ **Location management** - Add, edit, delete locations with descriptions
+- ✅ **Quantity adjustment** - Quick +/- buttons on item detail view
 - ✅ **Low stock alerts** - Visual indicators for low quantity items
 - ✅ **Search functionality** - Quick item lookup
 - ✅ **Responsive design** - Works on any device
@@ -79,8 +82,9 @@ src/
 │   ├── layout/          # Header, BottomNav, Layout
 │   ├── items/           # ItemCard, ItemList components
 │   ├── scanner/         # Barcode scanner (ZXing-JS)
+│   ├── settings/        # CategoryManager, LocationManager
 │   ├── photos/          # Photo upload components
-│   └── common/          # Reusable UI components (Button, Input, etc.)
+│   └── common/          # Reusable UI components (Button, Input, Modal, etc.)
 ├── lib/
 │   ├── db/              # IndexedDB schema and operations (Dexie.js)
 │   ├── sync/            # Google Sheets sync (coming soon)
@@ -105,11 +109,26 @@ src/
 - Use the search bar on the home screen
 - Search works across item names, barcodes, categories, locations, and notes
 
+### Managing Categories and Locations
+
+1. Tap the "Settings" button in the bottom navigation
+2. Go to "Organization" section
+3. Tap "Manage Categories" or "Manage Locations"
+4. Add, edit, or delete categories/locations
+5. Categories support 8 color options for visual organization
+6. Locations support optional descriptions
+
 ### Low Stock Alerts
 
 - Set a "Min Quantity" when adding/editing items
 - Items below minimum show a red alert icon
 - Low stock count appears in the notifications badge
+
+### Adjusting Quantity
+
+- Tap an item card to view details
+- Use the +/- buttons to quickly adjust quantity
+- Changes are saved instantly
 
 ## Development
 
@@ -174,9 +193,12 @@ MIT
 - ✅ Search and filtering
 - ✅ Photo upload
 - ✅ Barcode/QR scanning (ZXing-JS)
+- ✅ Item detail view with quantity adjustment
+- ✅ Category and location management (full CRUD)
 
 ### Phase 2: Sync & Cloud (Current)
-- 🔲 Item detail view and editing
+- 🔲 Item editing (full edit form)
+- 🔲 Item deletion
 - 🔲 Google Sheets OAuth
 - 🔲 Two-way sync engine
 - 🔲 Offline queue

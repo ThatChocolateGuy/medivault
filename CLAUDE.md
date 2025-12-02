@@ -50,7 +50,8 @@ medical-inventory-tracker/
 │   │   │   ├── Button.tsx      # Primary/secondary button with loading state
 │   │   │   ├── EmptyState.tsx  # Empty state messaging
 │   │   │   ├── Input.tsx       # Form input with label
-│   │   │   └── SearchBar.tsx   # Search input with icon
+│   │   │   ├── SearchBar.tsx   # Search input with icon
+│   │   │   └── Modal.tsx       # Reusable modal with animations
 │   │   │
 │   │   ├── items/
 │   │   │   └── ItemCard.tsx    # Inventory item card with photo, category, location
@@ -60,8 +61,12 @@ medical-inventory-tracker/
 │   │   │   ├── Header.tsx      # Page header with back button and title
 │   │   │   └── Layout.tsx      # Page layout wrapper with header and nav
 │   │   │
-│   │   └── scanner/
-│   │       └── BarcodeScanner.tsx  # ZXing-JS barcode scanner (FULLY FUNCTIONAL)
+│   │   ├── scanner/
+│   │   │   └── BarcodeScanner.tsx  # ZXing-JS barcode scanner (FULLY FUNCTIONAL)
+│   │   │
+│   │   └── settings/
+│   │       ├── CategoryManager.tsx  # Category CRUD UI with color picker
+│   │       └── LocationManager.tsx  # Location CRUD UI with descriptions
 │   │
 │   ├── lib/
 │   │   ├── db/
@@ -181,11 +186,19 @@ All operations are in `src/lib/db/operations.ts`:
 
 ### Category Operations
 - `getAllCategories()` - Get all categories ordered by name
+- `getCategoryById(id)` - Get single category by ID
 - `createCategory(name, color?)` - Create new category
+- `updateCategory(id, updates)` - Update category with validation and automatic item updates
+- `deleteCategory(id)` - Delete category with safety checks (prevents if in use or if last category)
+- `checkCategoryInUse(name)` - Check if category is used by any items (returns { inUse, count })
 
 ### Location Operations
 - `getAllLocations()` - Get all locations ordered by name
+- `getLocationById(id)` - Get single location by ID
 - `createLocation(name, description?)` - Create new location
+- `updateLocation(id, updates)` - Update location with validation and automatic item updates
+- `deleteLocation(id)` - Delete location with safety checks (prevents if in use or if last location)
+- `checkLocationInUse(name)` - Check if location is used by any items (returns { inUse, count })
 
 ### Sync Queue Operations
 - `getPendingSyncOperations()` - Get all pending sync operations
@@ -354,6 +367,72 @@ The barcode scanner has been completely rewritten using **ZXing-JS** for optimal
 - Printable test barcodes in `tests/fixtures/printable-barcodes.html`
 - Requires manual testing with real camera and barcodes
 
+## Category & Location Management Implementation (v0.2.0)
+
+### Implementation Details
+
+**Date Implemented**: 2025-12-01
+
+Full CRUD capabilities for managing categories and locations through the Settings page. Users are no longer stuck with the 4 hardcoded defaults for each.
+
+**Key Features:**
+- ✅ List all categories/locations with visual indicators
+- ✅ Add new categories with 8 color options (Blue, Green, Orange, Red, Purple, Pink, Yellow, Gray)
+- ✅ Add new locations with optional descriptions (max 200 chars)
+- ✅ Edit existing categories/locations (name, color, description)
+- ✅ Delete with comprehensive safety checks
+- ✅ Automatic cascade updates when renaming
+- ✅ Prevents deletion if in use (shows item count)
+- ✅ Prevents deleting last category/location
+- ✅ Success/error messages with auto-clear (3 seconds)
+- ✅ Smooth modal animations (fadeIn/slideIn)
+
+**Technical Architecture:**
+- **String-based references**: Items store category/location names (not IDs) for simplicity
+- **Bulk updates**: When renaming, automatically updates all affected items using Dexie's `where().modify()`
+- **Validation**: Name length (1-50 chars), duplicate prevention (case-insensitive), format validation
+- **Modal pattern**: Reusable component with escape key, backdrop click, body scroll prevention
+
+**Files Created:**
+- `src/components/common/Modal.tsx` (87 lines) - Reusable modal with animations
+- `src/components/settings/CategoryManager.tsx` (349 lines) - Category CRUD UI
+- `src/components/settings/LocationManager.tsx` (329 lines) - Location CRUD UI
+
+**Files Modified:**
+- `src/lib/db/operations.ts` - Added 8 new database operations (get, update, delete, checkInUse)
+- `src/pages/SettingsPage.tsx` - Added "Organization" section with manager buttons
+- `tailwind.config.js` - Added fadeIn and slideIn animations
+
+**Database Operations Added:**
+```typescript
+// Category operations
+getCategoryById(id: number): Promise<Category | undefined>
+updateCategory(id: number, updates: { name?: string; color?: string }): Promise<void>
+deleteCategory(id: number): Promise<void>
+checkCategoryInUse(name: string): Promise<{ inUse: boolean; count: number }>
+
+// Location operations
+getLocationById(id: number): Promise<Location | undefined>
+updateLocation(id: number, updates: { name?: string; description?: string }): Promise<void>
+deleteLocation(id: number): Promise<void>
+checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }>
+```
+
+**Validation Rules:**
+- Category name: required, 1-50 chars, no duplicates (case-insensitive)
+- Category color: hex format (#RRGGBB), 8 predefined options
+- Location name: required, 1-50 chars, no duplicates (case-insensitive)
+- Location description: optional, max 200 chars
+- Delete: blocks if in use (shows count), blocks if last remaining item
+
+**User Flow:**
+1. Navigate to Settings → Organization
+2. Tap "Manage Categories" or "Manage Locations"
+3. View list of all existing items with counts
+4. Add new: Fill form → Submit → Auto-reload list → Success message
+5. Edit: Tap edit icon → Modify → Save → Auto-update items → Success message
+6. Delete: Tap delete icon → See item count → Confirm or cancel → Success message
+
 ## Recent Issues and Fixes
 
 ### Issue: React Duplicate Key Warnings (FIXED)
@@ -389,6 +468,7 @@ The barcode scanner has been completely rewritten using **ZXing-JS** for optimal
 - Mobile-first responsive UI
 - Offline-first IndexedDB storage
 - Item CRUD operations (create, read, search)
+- **Item detail view with quantity adjustment** (+/- buttons)
 - Photo upload with compression
 - **Barcode scanner with ZXing-JS** (fully functional with:
   - Multi-format support (EAN, UPC, Code 128/39, QR)
@@ -397,20 +477,29 @@ The barcode scanner has been completely rewritten using **ZXing-JS** for optimal
   - Torch/flashlight control
   - Camera switching
   - Smart ROI processing)
-- Categories and locations management
+- **Category management UI** (full CRUD with 8-color palette)
+  - Add, edit, delete categories
+  - Color selection for visual organization
+  - Automatic item updates when renaming
+  - Safety checks (prevents deletion if in use or if last category)
+- **Location management UI** (full CRUD with descriptions)
+  - Add, edit, delete locations
+  - Optional description field
+  - Automatic item updates when renaming
+  - Safety checks (prevents deletion if in use or if last location)
 - Low stock alerts with visual badges
 - Search functionality across all fields
 - Empty state messaging
 - Form validation
 - Relative timestamps (date-fns)
+- **Reusable modal component** with animations
 
 ### 🚧 Partially Implemented
-- Settings page (UI exists, functionality pending)
+- Settings page (Organization section complete, sync/data management pending)
 - Sync queue (database schema ready, sync engine pending)
 
 ### ❌ Not Implemented
-- Item detail view (clicking cards does nothing)
-- Edit item functionality
+- Edit item functionality (full edit form)
 - Delete item functionality
 - Google Sheets OAuth flow
 - Google Sheets sync engine
@@ -420,8 +509,6 @@ The barcode scanner has been completely rewritten using **ZXing-JS** for optimal
 - Import from CSV
 - Clear all data functionality
 - Low stock notifications (push notifications)
-- Category management UI (add/edit/delete categories)
-- Location management UI (add/edit/delete locations)
 - Bulk operations (multi-select and bulk edit/delete)
 - Advanced filtering (by category, location, stock level)
 - Item history/audit log
@@ -523,5 +610,5 @@ When starting a new session:
 
 ---
 
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-12-01
 **Claude Version**: This file is maintained for Claude Code sessions to provide context and continuity.
