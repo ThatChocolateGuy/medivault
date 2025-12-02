@@ -17,7 +17,7 @@ async function addItem(
   }
 ) {
   await page.goto('/');
-  await page.click('[data-testid="nav-add"]');
+  await page.getByRole('button', { name: 'Add' }).click();
   await page.fill('input[name="name"]', itemData.name);
   await page.fill('input[name="quantity"]', String(itemData.quantity));
 
@@ -66,7 +66,7 @@ async function addPhotoToItem(page: Page, itemName: string) {
 // Helper to navigate to settings page
 async function goToSettings(page: Page) {
   await page.goto('/');
-  await page.click('[data-testid="nav-settings"]');
+  await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('h1')).toContainText('Settings');
 }
 
@@ -380,13 +380,13 @@ test.describe('Export Functionality', () => {
       await expect(page.locator('text=No items to export')).toBeVisible();
 
       // Add an item
-      await page.click('[data-testid="nav-add"]');
+      await page.getByRole('button', { name: 'Add' }).click();
       await page.fill('input[name="name"]', 'Recovery Test');
       await page.fill('input[name="quantity"]', '10');
       await page.click('button[type="submit"]');
 
       // Navigate back to settings
-      await page.click('[data-testid="nav-settings"]');
+      await page.getByRole('button', { name: 'Settings' }).click();
 
       // Second export attempt (should succeed)
       const downloadPromise = page.waitForEvent('download');
