@@ -467,8 +467,13 @@ checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }>
 ### ✅ Implemented (v0.2.0)
 - Mobile-first responsive UI
 - Offline-first IndexedDB storage
-- Item CRUD operations (create, read, search)
-- **Item detail view with quantity adjustment** (+/- buttons)
+- **Full Item CRUD operations** (create, read, update, delete)
+- **Item detail view** with edit mode and delete functionality
+  - View all item details (photos, barcode, quantity, category, location, notes)
+  - Edit mode with full form (all fields editable)
+  - Delete with confirmation dialog
+  - Quick quantity adjustment (+/- buttons)
+  - Photo management (add/remove photos)
 - Photo upload with compression
 - **Barcode scanner with ZXing-JS** (fully functional with:
   - Multi-format support (EAN, UPC, Code 128/39, QR)
@@ -499,8 +504,6 @@ checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }>
 - Sync queue (database schema ready, sync engine pending)
 
 ### ❌ Not Implemented
-- Edit item functionality (full edit form)
-- Delete item functionality
 - Google Sheets OAuth flow
 - Google Sheets sync engine
 - PWA configuration (service worker)
@@ -610,5 +613,5 @@ When starting a new session:
 
 ---
 
-**Last Updated**: 2025-12-01
+**Last Updated**: 2025-12-02
 **Claude Version**: This file is maintained for Claude Code sessions to provide context and continuity.

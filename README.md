@@ -7,7 +7,8 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 ### Current (v0.2.0 - MVP with Scanning)
 - ✅ **Mobile-first UI** - Optimized for touch and small screens
 - ✅ **Offline-first storage** - IndexedDB with Dexie.js
-- ✅ **Item management** - Create, view, search inventory items
+- ✅ **Full item CRUD** - Create, view, edit, and delete inventory items
+- ✅ **Item detail view** - Comprehensive view with edit and delete functionality
 - ✅ **Barcode scanning** - ZXing-JS with adaptive performance optimization
 - ✅ **Photo upload** - Capture and compress item photos
 - ✅ **Categories & locations** - Organize items efficiently with full CRUD UI
@@ -22,9 +23,9 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 - 🔲 Google Sheets sync for cloud backup
 - 🔲 PWA support for offline usage
 - 🔲 Export/import data (CSV)
-- 🔲 Item detail view with history
 - 🔲 Bulk operations
 - 🔲 Advanced filtering
+- 🔲 Item history/audit log
 
 ## Tech Stack
 
@@ -188,20 +189,23 @@ MIT
 ## Roadmap
 
 ### Phase 1: Core Features ✅ Complete
-- ✅ Basic CRUD operations
+- ✅ Basic CRUD operations (create, read, update, delete)
 - ✅ Mobile-first UI
 - ✅ Search and filtering
-- ✅ Photo upload
+- ✅ Photo upload and management
 - ✅ Barcode/QR scanning (ZXing-JS)
-- ✅ Item detail view with quantity adjustment
+- ✅ Item detail view with edit mode
+- ✅ Item editing (full edit form)
+- ✅ Item deletion with confirmation dialog
+- ✅ Quick quantity adjustment (+/- buttons)
 - ✅ Category and location management (full CRUD)
 
 ### Phase 2: Sync & Cloud (Current)
-- 🔲 Item editing (full edit form)
-- 🔲 Item deletion
 - 🔲 Google Sheets OAuth
 - 🔲 Two-way sync engine
 - 🔲 Offline queue
+- 🔲 Export to CSV
+- 🔲 Import from CSV
 
 ### Phase 3: PWA & Polish
 - 🔲 Service worker
