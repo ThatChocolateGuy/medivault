@@ -4,7 +4,7 @@ import { test, expect, type Page } from '@playwright/test';
  * Test suite for data export functionality (CSV and ZIP with photos)
  */
 
-// Helper to add an item via the UI
+// Helper to add an item directly to the database (faster and more reliable than UI)
 async function addItem(
   page: Page,
   itemData: {
@@ -16,35 +16,22 @@ async function addItem(
     notes?: string;
   }
 ) {
-  await page.goto('/');
-  await page.locator('nav').getByRole('button', { name: 'Add' }).click();
-  await expect(page.locator('h1')).toContainText('Add Item');
-
-  // Wait for form to be fully loaded and interactive
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500); // Small delay for form initialization
-
-  await page.getByLabel('Item Name', { exact: false }).fill(itemData.name);
-  await page.getByLabel('Quantity', { exact: false }).fill(String(itemData.quantity));
-
-  if (itemData.minQuantity !== undefined) {
-    await page.getByLabel('Min Quantity', { exact: false }).fill(String(itemData.minQuantity));
-  }
-
-  if (itemData.category) {
-    await page.getByLabel('Category', { exact: false }).selectOption(itemData.category);
-  }
-
-  if (itemData.location) {
-    await page.getByLabel('Location', { exact: false }).selectOption(itemData.location);
-  }
-
-  if (itemData.notes) {
-    await page.getByPlaceholder('Additional notes').fill(itemData.notes);
-  }
-
-  await page.getByRole('button', { name: 'Add Item' }).click();
-  await page.waitForURL('/');
+  await page.evaluate(async (data) => {
+    const { db } = await import('../src/lib/db/index.ts');
+    await db.items.add({
+      name: data.name,
+      quantity: data.quantity,
+      minQuantity: data.minQuantity,
+      category: data.category || 'Medications',
+      location: data.location || 'Shelf A',
+      notes: data.notes,
+      barcode: '',
+      photos: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      syncStatus: 'pending',
+    });
+  }, itemData);
 }
 
 // Helper to add a test photo to an item
@@ -386,13 +373,10 @@ test.describe('Export Functionality', () => {
       await expect(page.locator('text=No items to export')).toBeVisible();
 
       // Add an item
-      await page.locator('nav').getByRole('button', { name: 'Add' }).click();
-      await expect(page.locator('h1')).toContainText('Add Item');
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(500);
-      await page.getByLabel('Item Name', { exact: false }).fill('Recovery Test');
-      await page.getByLabel('Quantity', { exact: false }).fill('10');
-      await page.getByRole('button', { name: 'Add Item' }).click();
+      await addItem(page, {
+        name: 'Recovery Test',
+        quantity: 10,
+      });
 
       // Navigate back to settings
       await page.locator('nav').getByRole('button', { name: 'Settings' }).click();
