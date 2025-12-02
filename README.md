@@ -18,11 +18,12 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 - ✅ **Low stock alerts** - Visual indicators for low quantity items
 - ✅ **Search functionality** - Quick item lookup
 - ✅ **Responsive design** - Works on any device
+- ✅ **Data export** - Export inventory to CSV or ZIP with photos
 
 ### Coming Soon
 - 🔲 Google Sheets sync for cloud backup
 - 🔲 PWA support for offline usage
-- 🔲 Export/import data (CSV)
+- 🔲 Import data (CSV/ZIP)
 - 🔲 Bulk operations
 - 🔲 Advanced filtering
 - 🔲 Item history/audit log
@@ -34,6 +35,7 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 - **Build Tool**: Vite 7
 - **Database**: IndexedDB (via Dexie.js)
 - **Barcode Scanning**: ZXing-JS (@zxing/library + @zxing/browser)
+- **File Export**: JSZip (ZIP file creation)
 - **Icons**: Lucide React
 - **Package Manager**: npm (or bun)
 
@@ -201,11 +203,12 @@ MIT
 - ✅ Category and location management (full CRUD)
 
 ### Phase 2: Sync & Cloud (Current)
+- ✅ Export to CSV
+- ✅ Export with photos (ZIP)
+- 🔲 Import from CSV/ZIP
 - 🔲 Google Sheets OAuth
 - 🔲 Two-way sync engine
 - 🔲 Offline queue
-- 🔲 Export to CSV
-- 🔲 Import from CSV
 
 ### Phase 3: PWA & Polish
 - 🔲 Service worker
