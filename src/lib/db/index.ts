@@ -93,7 +93,7 @@ export async function initializeDatabase() {
 
     try {
       await db.categories.bulkAdd(defaultCategories);
-    } catch (error) {
+    } catch (_error) {
       // Ignore duplicate key errors (race condition from React StrictMode)
       console.log('Categories already exist, skipping initialization');
     }
@@ -111,7 +111,7 @@ export async function initializeDatabase() {
 
     try {
       await db.locations.bulkAdd(defaultLocations);
-    } catch (error) {
+    } catch (_error) {
       // Ignore duplicate key errors
       console.log('Locations already exist, skipping initialization');
     }
@@ -125,7 +125,7 @@ export async function initializeDatabase() {
         syncEnabled: false,
         lowStockAlerts: true,
       });
-    } catch (error) {
+    } catch (_error) {
       // Ignore duplicate key errors
       console.log('Settings already exist, skipping initialization');
     }

@@ -69,7 +69,7 @@ test.describe('Visual Consistency and UX', () => {
     await page.goto('/');
 
     // Check if loader appears initially
-    const possibleLoader = page.locator('text=Loading');
+    const _possibleLoader = page.locator('text=Loading');
     // Loader might be very quick, so we just check the page loads
 
     await page.waitForTimeout(2000);

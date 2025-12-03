@@ -56,6 +56,7 @@ export function ItemDetailPage({ itemId, onNavigate, onBack }: ItemDetailPagePro
   useEffect(() => {
     loadItem();
     loadOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
   const loadItem = async () => {
