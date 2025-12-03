@@ -522,11 +522,140 @@ The app now supports two export options for inventory data:
 - Loading spinner during export process
 - Success message on completion
 
-**Future Enhancement - Import:**
-- Next step is to implement import from CSV/ZIP
-- Will need to parse CSV and restore items
-- For ZIP imports, extract photos and restore to items
-- Match photos by filename pattern to item IDs
+## Data Import Implementation (v0.3.0)
+
+### Implementation Details
+
+**Date Implemented**: 2025-12-03
+
+The app now supports importing inventory data from CSV and ZIP files, completing the full backup and restore cycle.
+
+**Key Features:**
+- ✅ CSV import (data only) with RFC 4180 compliant parsing
+- ✅ ZIP import with photo restoration
+- ✅ Three duplicate handling strategies (skip, overwrite, rename)
+- ✅ Auto-create missing categories/locations
+- ✅ ID preservation option
+- ✅ Transaction-based import with atomic rollback on errors
+- ✅ Real-time progress tracking with 5-phase updates
+- ✅ Comprehensive validation (structure, data, duplicates)
+- ✅ ARIA-compliant modal with multi-step wizard UI
+- ✅ Photo MIME type preservation during restoration
+- ✅ Detailed results summary with statistics
+
+**Technical Architecture:**
+
+**CSV Parser** (`src/lib/utils/csvParser.ts` - 500+ lines):
+- RFC 4180 compliant parsing with quoted field support
+- UTF-8 BOM detection and removal
+- Multiple line ending support (CRLF, LF, CR)
+- Header validation (CSV and ZIP format detection)
+- Per-row data validation with line number tracking
+- Duplicate detection (by ID, name, barcode)
+- Missing category/location detection
+- Types: `ParsedCSVData`, `ValidationResult`, `ImportValidation`, `DuplicateInfo`
+
+**Import Utilities** (`src/lib/utils/import.ts` - 600+ lines):
+- `importInventoryFromCSV()` - Import from CSV with progress tracking
+- `importInventoryFromZIP()` - Extract CSV and photos, restore with progress
+- `autoImport()` - Auto-detect file type and route to appropriate importer
+- `extractCSVFromZIP()` - Extract inventory.csv from ZIP archive
+- `extractPhotosFromZIP()` - Extract and convert photos to base64
+- `validateZIPStructure()` - Ensure required files exist
+- Progress tracking: Parsing (0-15%) → Validating (15-30%) → Photos (30-70%) → Importing (70-100%)
+
+**Database Operations** (`src/lib/db/operations.ts` - +340 lines):
+- `importItems()` - Transaction-based import with rollback
+- `checkItemExists()` - Multi-strategy duplicate detection
+- `generateUniqueItemName()` - Smart rename with counter (e.g., "Aspirin (2)")
+- `bulkCreateCategories()` - Create missing categories in batch
+- `bulkCreateLocations()` - Create missing locations in batch
+- Types: `ImportOptions`, `ImportResult`
+
+**Import Modal** (`src/components/settings/ImportModal.tsx` - 550+ lines):
+- Multi-step wizard: File Selection → Options → Progress → Results
+- ARIA compliance: `role="dialog"`, `aria-busy`, `aria-live` regions
+- Focus management and keyboard navigation (Tab, Escape)
+- Real-time progress with animated progress bar
+- Detailed results with statistics grid
+- Error and warning displays with context
+
+**Files Created:**
+- `src/lib/utils/csvParser.ts` (NEW - 520 lines) - CSV parsing and validation
+- `src/lib/utils/import.ts` (NEW - 620 lines) - ZIP extraction and import orchestration
+- `src/components/settings/ImportModal.tsx` (NEW - 550 lines) - Import UI with ARIA compliance
+
+**Files Modified:**
+- `src/lib/db/operations.ts` (+340 lines) - Added import database operations
+- `src/pages/SettingsPage.tsx` (+15 lines) - Added import button and modal integration
+
+**Import Options:**
+
+```typescript
+interface ImportOptions {
+  duplicateStrategy: 'skip' | 'overwrite' | 'rename';  // How to handle existing items
+  createMissingCategories: boolean;                     // Auto-create new categories
+  createMissingLocations: boolean;                      // Auto-create new locations
+  preserveIds: boolean;                                 // Try to keep original IDs
+  onProgress?: (progress: ImportProgress) => void;      // Real-time progress callback
+}
+```
+
+**Duplicate Strategies:**
+1. **Skip**: Don't import items that already exist (default, safest)
+2. **Overwrite**: Replace existing items with imported data
+3. **Rename**: Create new items with unique names (e.g., "Aspirin" → "Aspirin (2)")
+
+**Import Process:**
+1. **File Selection**: Accept CSV or ZIP, validate file type
+2. **Options Configuration**: Choose duplicate strategy, category/location creation
+3. **Parsing (0-15%)**: Extract CSV, parse headers and rows
+4. **Validation (15-30%)**: Validate structure, data types, required fields
+5. **Photo Extraction (30-70%)**: Extract photos from ZIP, convert to base64
+6. **Importing (70-100%)**: Transaction-based database import with rollback
+7. **Results**: Display statistics, warnings, errors
+
+**Edge Cases Handled:**
+- Empty files, corrupted ZIPs, missing inventory.csv
+- Invalid CSV structure, inconsistent column counts
+- Missing required fields (name, quantity, category, location)
+- Invalid data types (non-numeric quantities, invalid dates)
+- Missing categories/locations (error or auto-create based on options)
+- Duplicate items (skip, overwrite, or rename based on strategy)
+- ID conflicts when preserving IDs
+- Missing photos referenced in CSV
+- Corrupted photo files, invalid MIME types
+- Transaction failures with automatic rollback
+- Browser storage quota exceeded
+- Large file handling (progress updates prevent UI freezing)
+
+**User Experience:**
+- Settings → Data → "Import Data"
+- Step 1: Drag & drop or click to select CSV/ZIP file
+- Step 2: Configure import options with radio buttons and checkboxes
+- Step 3: Real-time progress with phase labels and percentage
+- Step 4: Results summary with statistics grid, warnings, and errors
+- Success: Green checkmark, import statistics, duration
+- Failure: Red alert, error details, option to retry
+
+**Import vs Export Comparison:**
+
+| Feature | CSV Export | ZIP Export | CSV Import | ZIP Import |
+|---------|------------|------------|------------|------------|
+| File Size | ~5-50 KB | ~1-100+ MB | Any | Any |
+| Photos | ❌ Count only | ✅ Full resolution | ❌ | ✅ Restored |
+| Duplicates | N/A | N/A | 3 strategies | 3 strategies |
+| Categories/Locations | N/A | N/A | Auto-create option | Auto-create option |
+| Validation | N/A | N/A | Comprehensive | Comprehensive |
+| Progress Tracking | ❌ | ❌ | ✅ 5 phases | ✅ 5 phases |
+| Transaction Safety | N/A | N/A | ✅ Rollback | ✅ Rollback |
+| Use Case | Quick analysis | Complete backup | Data restore | Full restore |
+
+**Testing Notes:**
+- Import feature requires E2E tests with test CSV/ZIP files
+- Test fixtures should include: valid files, invalid files, duplicates, missing fields
+- Suggested test file: Export existing data, modify CSV, re-import to verify
+- Manual testing recommended before merging to production
 
 ## Recent Issues and Fixes
 
@@ -559,7 +688,7 @@ The app now supports two export options for inventory data:
 
 ## Features Status
 
-### ✅ Implemented (v0.2.0)
+### ✅ Implemented (v0.3.0)
 - Mobile-first responsive UI
 - Offline-first IndexedDB storage
 - **Full Item CRUD operations** (create, read, update, delete)
@@ -598,13 +727,21 @@ The app now supports two export options for inventory data:
   - ZIP export with photo backup
   - Size estimation and warnings
   - Photo MIME type preservation
+- **Data import functionality** (CSV and ZIP with photos) ✨ NEW in v0.3.0
+  - CSV import with RFC 4180 compliance
+  - ZIP import with photo restoration
+  - Three duplicate handling strategies (skip, overwrite, rename)
+  - Auto-create missing categories/locations
+  - Transaction-based with rollback
+  - Real-time progress tracking
+  - ARIA-compliant wizard UI
+  - Comprehensive validation and error handling
 
 ### 🚧 Partially Implemented
-- Settings page (Organization and export complete, sync/import pending)
+- Settings page (Organization, export, and import complete; sync pending)
 - Sync queue (database schema ready, sync engine pending)
 
 ### ❌ Not Implemented
-- Import from CSV/ZIP (restore from backup)
 - Google Sheets OAuth flow
 - Google Sheets sync engine
 - PWA configuration (service worker)
@@ -712,5 +849,5 @@ When starting a new session:
 
 ---
 
-**Last Updated**: 2025-12-02 (Added Data Export with Photos feature)
+**Last Updated**: 2025-12-03 (Added Data Import with Photos feature - v0.3.0)
 **Claude Version**: This file is maintained for Claude Code sessions to provide context and continuity.

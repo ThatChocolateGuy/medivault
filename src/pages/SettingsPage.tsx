@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { type NavItem } from '../components/layout/BottomNav';
-import { Cloud, Bell, Database, Info, FolderOpen, MapPin, ChevronRight } from 'lucide-react';
+import { Cloud, Bell, Database, Info, FolderOpen, MapPin, ChevronRight, Upload } from 'lucide-react';
 import { CategoryManager } from '../components/settings/CategoryManager';
 import { LocationManager } from '../components/settings/LocationManager';
+import { ImportModal } from '../components/settings/ImportModal';
 import { getAllItems } from '../lib/db/operations';
 import {
   convertItemsToCSV,
@@ -22,6 +23,7 @@ interface SettingsPageProps {
 export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showLocationManager, setShowLocationManager] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingWithPhotos, setIsExportingWithPhotos] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -235,6 +237,18 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                 />
               )}
             </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              aria-label="Import inventory data from CSV or ZIP file"
+              className="flex items-center gap-3 w-full p-4 text-left active:bg-gray-50"
+            >
+              <Upload className="w-5 h-5 text-gray-600" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Import Data</p>
+                <p className="text-sm text-gray-500">Restore from CSV or ZIP backup</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
             <button className="flex items-center gap-3 w-full p-4 text-left text-red-600 active:bg-red-50">
               <Database className="w-5 h-5" />
               <div className="flex-1">
@@ -269,6 +283,16 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
       {showLocationManager && (
         <LocationManager onClose={() => setShowLocationManager(false)} />
       )}
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          // Optionally refresh data or show a message
+          // The component will handle its own success state
+        }}
+      />
     </Layout>
   );
 }
