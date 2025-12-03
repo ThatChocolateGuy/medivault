@@ -376,8 +376,9 @@ export function csvRowToItem(
     quantity: parseInt(quantity) || 0,
     category: category.trim(),
     location: location.trim(),
-    photos: [],
     syncStatus: 'pending',
+    // Note: Don't include photos array for CSV-only imports
+    // This allows overwrite strategy to preserve existing photos
   };
 
   // Optional fields

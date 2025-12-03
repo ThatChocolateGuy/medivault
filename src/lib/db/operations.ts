@@ -571,9 +571,11 @@ export async function importItems(
               break;
 
             case 'overwrite':
-              // Update existing item
+              // Update existing item, preserving photos if not provided in import
               if (existenceCheck.existingId) {
                 const now = new Date();
+                const existingItem = await db.items.get(existenceCheck.existingId);
+
                 await db.items.update(existenceCheck.existingId, {
                   name: item.name!,
                   barcode: item.barcode,
@@ -582,7 +584,9 @@ export async function importItems(
                   category: item.category!,
                   location: item.location!,
                   notes: item.notes,
-                  photos: item.photos || [],
+                  // Preserve existing photos if import doesn't have any (CSV-only import)
+                  // Only update photos if import explicitly provides them (ZIP import)
+                  photos: item.photos !== undefined ? item.photos : (existingItem?.photos || []),
                   updatedAt: item.updatedAt || now,
                   syncStatus: 'pending',
                 });
