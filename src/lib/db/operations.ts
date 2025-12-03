@@ -437,7 +437,7 @@ async function bulkCreateCategories(categoryNames: string[]): Promise<number> {
   const newCategories = categoryNames
     .filter((name) => !existingNames.has(name.toLowerCase()))
     .map((name) => ({
-      name: name.trim(), // Preserve original casing from import
+      name: name.trim(), // Remove any whitespace to ensure clean category names
       color: '#6b7280', // Default gray color
       createdAt: new Date(),
     }));
@@ -462,7 +462,7 @@ async function bulkCreateLocations(locationNames: string[]): Promise<number> {
   const newLocations = locationNames
     .filter((name) => !existingNames.has(name.toLowerCase()))
     .map((name) => ({
-      name: name.trim(), // Preserve original casing from import
+      name: name.trim(), // Remove any whitespace to ensure clean location names
       description: '',
       createdAt: new Date(),
     }));
