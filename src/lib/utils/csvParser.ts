@@ -269,7 +269,7 @@ export function validateItemData(
   const warnings: string[] = [];
 
   // Map CSV columns to field names
-  const [id, name, barcode, quantity, minQuantity, category, location, notes] = row;
+  const [id, name, , quantity, minQuantity, category, location] = row;
 
   // Required field: Name
   if (!name || name.trim().length === 0) {

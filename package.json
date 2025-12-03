@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "type-check": "tsc -b --noEmit",
+    "lint": "npm run type-check && eslint .",
+    "lint:eslint": "eslint .",
     "preview": "vite preview",
     "test": "playwright test",
     "test:ui": "playwright test --ui",

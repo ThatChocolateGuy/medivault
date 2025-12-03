@@ -1,5 +1,4 @@
 import JSZip from 'jszip';
-import { type InventoryItem } from '../db';
 import { importItems, type ImportOptions, type ImportResult } from '../db/operations';
 import { getAllCategories, getAllLocations, getAllItems } from '../db/operations';
 import {
@@ -133,12 +132,11 @@ function getMimeTypeFromExtension(filename: string): string {
 }
 
 /**
- * Extracts photos from ZIP and maps them to items
+ * Extracts photos from ZIP and maps them to items by ID
  * Returns a map of item IDs to photo base64 arrays
  */
 async function extractPhotosFromZIP(
   zip: JSZip,
-  items: Partial<InventoryItem>[],
   onProgress?: (progress: ImportProgress) => void
 ): Promise<Map<number, string[]>> {
   const photoMap = new Map<number, string[]>();
@@ -508,7 +506,7 @@ export async function importInventoryFromZIP(
     }
 
     // Extract photos from ZIP
-    const photoMap = await extractPhotosFromZIP(zip, items, onProgress);
+    const photoMap = await extractPhotosFromZIP(zip, onProgress);
 
     // Attach photos to items
     let photosRestored = 0;
