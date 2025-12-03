@@ -27,6 +27,11 @@ This file provides guidance to Claude Code when working with the MediVault codeb
 - **Code Formatting**: Prettier 3.6.2
 - **Package Manager**: npm (or bun)
 
+### Data Export
+- **CSV Export**: Native browser Blob API with UTF-8 BOM
+- **ZIP Creation**: JSZip 3.10.1 (compression level 6)
+- **Photo Export**: Base64 to Blob conversion with MIME type preservation
+
 ### Barcode Scanning
 - **Library**: ZXing-JS (@zxing/library 0.21+, @zxing/browser 0.1+)
 - **Status**: ✅ **FULLY IMPLEMENTED** (2025-01-21)
@@ -433,6 +438,96 @@ checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }>
 5. Edit: Tap edit icon → Modify → Save → Auto-update items → Success message
 6. Delete: Tap delete icon → See item count → Confirm or cancel → Success message
 
+## Data Export Implementation (v0.2.0)
+
+### Implementation Details
+
+**Date Implemented**: 2025-12-02
+
+The app now supports two export options for inventory data:
+1. **CSV Export** - Lightweight data-only export for spreadsheet analysis
+2. **ZIP Export with Photos** - Complete backup with all photos included
+
+**Key Features:**
+- ✅ CSV export with UTF-8 BOM for Excel compatibility
+- ✅ ZIP export with folder structure (inventory.csv + photos/ directory)
+- ✅ Photo filename references in CSV (pipe-separated paths)
+- ✅ MIME type preservation (JPEG, PNG, GIF, WebP)
+- ✅ Base64 to Blob conversion for proper image files
+- ✅ Size estimation and warning for large exports (>50MB)
+- ✅ Validation checks (empty inventory, no photos)
+- ✅ Loading states and error handling
+- ✅ Success messages with auto-clear (3 seconds)
+
+**Technical Architecture:**
+
+**CSV Export** (`src/lib/utils/csv.ts`):
+- Uses native browser Blob API
+- UTF-8 BOM (`\uFEFF`) for Excel compatibility
+- RFC 4180 compliant escaping (commas, quotes, newlines)
+- Timestamped filename: `medivault-inventory-YYYY-MM-DDTHH-MM-SS.csv`
+- Includes: ID, Name, Barcode, Quantity, Min Quantity, Category, Location, Notes, Photo Count, Created At, Updated At
+- Excludes: Photos array (too large), syncStatus/syncedAt (internal fields)
+
+**ZIP Export** (`src/lib/utils/export.ts`):
+- Uses JSZip library (3.10.1) with DEFLATE compression (level 6)
+- Folder structure:
+  ```
+  medivault-backup-YYYY-MM-DDTHH-MM-SS.zip
+  ├── inventory.csv (with photo references)
+  └── photos/
+      ├── item-1-photo-1.jpg
+      ├── item-1-photo-2.png
+      ├── item-2-photo-1.jpg
+      └── ...
+  ```
+- Photo filenames: `item-{id}-photo-{index}.{ext}` (e.g., `item-5-photo-2.png`)
+- CSV includes "Photos" column with pipe-separated paths: `photos/item-1-photo-1.jpg|photos/item-1-photo-2.jpg`
+- Proper file extensions based on MIME type detection
+- Memory cleanup with `URL.revokeObjectURL()`
+
+**Files Created/Modified:**
+- `src/lib/utils/export.ts` (NEW - 182 lines) - ZIP export utilities
+  - `base64ToBlob()` - Converts base64 data URLs to Blob objects
+  - `getExtensionFromMimeType()` - Maps MIME types to file extensions
+  - `convertItemsToCSVWithPhotos()` - CSV with photo filename references
+  - `exportInventoryWithPhotos()` - Creates and downloads ZIP file
+  - `estimateExportSize()` - Calculates approximate ZIP size in MB
+- `src/lib/utils/csv.ts` (MODIFIED) - Made `escapeCSVField()` exportable for reuse
+- `src/pages/SettingsPage.tsx` (MODIFIED - +62 lines) - Added export functionality
+  - Import export utilities and JSZip functions
+  - Added `isExportingWithPhotos` state
+  - Created `handleExportWithPhotos()` async handler
+  - Added "Export with Photos" button in Data section
+  - Photo validation (checks for presence of photos)
+  - Size warning dialog for large exports (>50MB)
+- `package.json` (MODIFIED) - Added JSZip 3.10.1 dependency
+
+**Export Options Comparison:**
+
+| Feature | CSV Export | ZIP Export with Photos |
+|---------|------------|------------------------|
+| File Size | ~5-50 KB | ~1-100+ MB (depends on photos) |
+| Photos | ❌ (count only) | ✅ (full resolution) |
+| Excel Compatible | ✅ | ✅ (CSV inside ZIP) |
+| Restore Capability | Partial | Full |
+| Use Case | Quick analysis | Complete backup |
+
+**User Experience:**
+- Settings → Data → "Export Data" for CSV only
+- Settings → Data → "Export with Photos" for complete backup
+- Shows error if no items to export
+- Shows error if no photos exist (directs to use CSV export)
+- Shows size warning dialog if ZIP >50MB with option to cancel
+- Loading spinner during export process
+- Success message on completion
+
+**Future Enhancement - Import:**
+- Next step is to implement import from CSV/ZIP
+- Will need to parse CSV and restore items
+- For ZIP imports, extract photos and restore to items
+- Match photos by filename pattern to item IDs
+
 ## Recent Issues and Fixes
 
 ### Issue: React Duplicate Key Warnings (FIXED)
@@ -498,18 +593,22 @@ checkLocationInUse(name: string): Promise<{ inUse: boolean; count: number }>
 - Form validation
 - Relative timestamps (date-fns)
 - **Reusable modal component** with animations
+- **Data export functionality** (CSV and ZIP with photos)
+  - CSV export with UTF-8 BOM for Excel compatibility
+  - ZIP export with photo backup
+  - Size estimation and warnings
+  - Photo MIME type preservation
 
 ### 🚧 Partially Implemented
-- Settings page (Organization section complete, sync/data management pending)
+- Settings page (Organization and export complete, sync/import pending)
 - Sync queue (database schema ready, sync engine pending)
 
 ### ❌ Not Implemented
+- Import from CSV/ZIP (restore from backup)
 - Google Sheets OAuth flow
 - Google Sheets sync engine
 - PWA configuration (service worker)
 - Offline support (currently requires network)
-- Export to CSV
-- Import from CSV
 - Clear all data functionality
 - Low stock notifications (push notifications)
 - Bulk operations (multi-select and bulk edit/delete)
@@ -613,5 +712,5 @@ When starting a new session:
 
 ---
 
-**Last Updated**: 2025-12-02
+**Last Updated**: 2025-12-02 (Added Data Export with Photos feature)
 **Claude Version**: This file is maintained for Claude Code sessions to provide context and continuity.
