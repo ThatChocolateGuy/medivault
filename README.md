@@ -4,7 +4,7 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 
 ## Features
 
-### Current (v0.2.0 - MVP with Scanning)
+### Current (v0.3.0 - Complete Backup & Restore)
 - ✅ **Mobile-first UI** - Optimized for touch and small screens
 - ✅ **Offline-first storage** - IndexedDB with Dexie.js
 - ✅ **Full item CRUD** - Create, view, edit, and delete inventory items
@@ -19,11 +19,11 @@ A modern, mobile-first medical inventory management app with barcode scanning, o
 - ✅ **Search functionality** - Quick item lookup
 - ✅ **Responsive design** - Works on any device
 - ✅ **Data export** - Export inventory to CSV or ZIP with photos
+- ✅ **Data import** ✨ NEW - Restore from CSV/ZIP with duplicate handling
 
 ### Coming Soon
 - 🔲 Google Sheets sync for cloud backup
 - 🔲 PWA support for offline usage
-- 🔲 Import data (CSV/ZIP)
 - 🔲 Bulk operations
 - 🔲 Advanced filtering
 - 🔲 Item history/audit log
@@ -205,7 +205,7 @@ MIT
 ### Phase 2: Sync & Cloud (Current)
 - ✅ Export to CSV
 - ✅ Export with photos (ZIP)
-- 🔲 Import from CSV/ZIP
+- ✅ Import from CSV/ZIP ✨ NEW in v0.3.0
 - 🔲 Google Sheets OAuth
 - 🔲 Two-way sync engine
 - 🔲 Offline queue

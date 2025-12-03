@@ -343,3 +343,344 @@ export async function markSyncOperationFailed(id: number, error: string): Promis
     attemptedAt: new Date(),
   });
 }
+
+// Import operations
+
+/**
+ * Import options for controlling import behavior
+ */
+export interface ImportOptions {
+  duplicateStrategy: 'skip' | 'overwrite' | 'rename';
+  createMissingCategories: boolean;
+  createMissingLocations: boolean;
+  preserveIds: boolean;
+}
+
+/**
+ * Result of an import operation
+ */
+export interface ImportResult {
+  success: boolean;
+  itemsImported: number;
+  itemsSkipped: number;
+  itemsOverwritten: number;
+  itemsRenamed: number;
+  categoriesCreated: number;
+  locationsCreated: number;
+  errors: string[];
+  warnings: string[];
+  duration: number;
+}
+
+/**
+ * Check if an item already exists in the database
+ * Returns match information if found
+ */
+export async function checkItemExists(
+  item: Partial<InventoryItem>
+): Promise<{ exists: boolean; existingId?: number; matchType?: 'id' | 'name' | 'barcode' }> {
+  // Check by ID if present
+  if (item.id) {
+    const existingItem = await db.items.get(item.id);
+    if (existingItem) {
+      return { exists: true, existingId: existingItem.id, matchType: 'id' };
+    }
+  }
+
+  // Check by barcode if present
+  if (item.barcode) {
+    const existingItem = await db.items.where('barcode').equals(item.barcode).first();
+    if (existingItem) {
+      return { exists: true, existingId: existingItem.id, matchType: 'barcode' };
+    }
+  }
+
+  // Check by name (case-insensitive)
+  if (item.name) {
+    const existingItem = await db.items
+      .filter((i) => i.name.toLowerCase() === item.name!.toLowerCase())
+      .first();
+    if (existingItem) {
+      return { exists: true, existingId: existingItem.id, matchType: 'name' };
+    }
+  }
+
+  return { exists: false };
+}
+
+/**
+ * Generates a unique item name by appending a number
+ * e.g., "Aspirin" -> "Aspirin (2)"
+ */
+function generateUniqueItemName(baseName: string, existingNames: Set<string>): string {
+  let counter = 2;
+  let newName = `${baseName} (${counter})`;
+
+  while (existingNames.has(newName.toLowerCase())) {
+    counter++;
+    newName = `${baseName} (${counter})`;
+  }
+
+  return newName;
+}
+
+/**
+ * Bulk create categories from an array of category names
+ * Returns the number of categories created
+ */
+async function bulkCreateCategories(categoryNames: string[]): Promise<number> {
+  if (categoryNames.length === 0) return 0;
+
+  const existingCategories = await db.categories.toArray();
+  const existingNames = new Set(existingCategories.map((c) => c.name.toLowerCase()));
+
+  const newCategories = categoryNames
+    .filter((name) => !existingNames.has(name.toLowerCase()))
+    .map((name) => ({
+      name,
+      color: '#6b7280', // Default gray color
+      createdAt: new Date(),
+    }));
+
+  if (newCategories.length > 0) {
+    await db.categories.bulkAdd(newCategories);
+  }
+
+  return newCategories.length;
+}
+
+/**
+ * Bulk create locations from an array of location names
+ * Returns the number of locations created
+ */
+async function bulkCreateLocations(locationNames: string[]): Promise<number> {
+  if (locationNames.length === 0) return 0;
+
+  const existingLocations = await db.locations.toArray();
+  const existingNames = new Set(existingLocations.map((l) => l.name.toLowerCase()));
+
+  const newLocations = locationNames
+    .filter((name) => !existingNames.has(name.toLowerCase()))
+    .map((name) => ({
+      name,
+      description: '',
+      createdAt: new Date(),
+    }));
+
+  if (newLocations.length > 0) {
+    await db.locations.bulkAdd(newLocations);
+  }
+
+  return newLocations.length;
+}
+
+/**
+ * Import inventory items with transaction support and rollback on error
+ * Handles duplicates according to the specified strategy
+ * Creates missing categories/locations if configured
+ */
+export async function importItems(
+  items: Partial<InventoryItem>[],
+  options: ImportOptions
+): Promise<ImportResult> {
+  const startTime = Date.now();
+  const result: ImportResult = {
+    success: false,
+    itemsImported: 0,
+    itemsSkipped: 0,
+    itemsOverwritten: 0,
+    itemsRenamed: 0,
+    categoriesCreated: 0,
+    locationsCreated: 0,
+    errors: [],
+    warnings: [],
+    duration: 0,
+  };
+
+  try {
+    // Validate all items have required fields
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.name || !item.category || !item.location) {
+        result.errors.push(
+          `Item ${i + 1}: Missing required fields (name, category, or location)`
+        );
+      }
+      if (item.quantity === undefined || item.quantity < 0) {
+        result.errors.push(`Item ${i + 1} (${item.name}): Invalid quantity`);
+      }
+    }
+
+    if (result.errors.length > 0) {
+      throw new Error(`Validation failed: ${result.errors.length} error(s)`);
+    }
+
+    // Perform import in a transaction for atomicity
+    await db.transaction('rw', db.items, db.categories, db.locations, db.syncQueue, async () => {
+      // Step 1: Create missing categories if configured
+      if (options.createMissingCategories) {
+        const uniqueCategories = [...new Set(items.map((i) => i.category!))];
+        result.categoriesCreated = await bulkCreateCategories(uniqueCategories);
+      } else {
+        // Validate all categories exist
+        const existingCategories = await db.categories.toArray();
+        const existingCategoryNames = new Set(existingCategories.map((c) => c.name));
+        const missingCategories = items
+          .map((i) => i.category!)
+          .filter((c) => !existingCategoryNames.has(c));
+        if (missingCategories.length > 0) {
+          throw new Error(
+            `Missing categories: ${[...new Set(missingCategories)].join(', ')}. ` +
+              `Enable "Create missing categories" to add them automatically.`
+          );
+        }
+      }
+
+      // Step 2: Create missing locations if configured
+      if (options.createMissingLocations) {
+        const uniqueLocations = [...new Set(items.map((i) => i.location!))];
+        result.locationsCreated = await bulkCreateLocations(uniqueLocations);
+      } else {
+        // Validate all locations exist
+        const existingLocations = await db.locations.toArray();
+        const existingLocationNames = new Set(existingLocations.map((l) => l.name));
+        const missingLocations = items
+          .map((i) => i.location!)
+          .filter((l) => !existingLocationNames.has(l));
+        if (missingLocations.length > 0) {
+          throw new Error(
+            `Missing locations: ${[...new Set(missingLocations)].join(', ')}. ` +
+              `Enable "Create missing locations" to add them automatically.`
+          );
+        }
+      }
+
+      // Step 3: Build set of existing item names for rename strategy
+      const existingItems = await db.items.toArray();
+      const existingNames = new Set(existingItems.map((i) => i.name.toLowerCase()));
+
+      // Step 4: Process each item according to duplicate strategy
+      for (const item of items) {
+        const existenceCheck = await checkItemExists(item);
+
+        if (existenceCheck.exists) {
+          // Handle duplicate
+          switch (options.duplicateStrategy) {
+            case 'skip':
+              result.itemsSkipped++;
+              break;
+
+            case 'overwrite':
+              // Update existing item
+              if (existenceCheck.existingId) {
+                const now = new Date();
+                await db.items.update(existenceCheck.existingId, {
+                  name: item.name!,
+                  barcode: item.barcode,
+                  quantity: item.quantity!,
+                  minQuantity: item.minQuantity,
+                  category: item.category!,
+                  location: item.location!,
+                  notes: item.notes,
+                  photos: item.photos || [],
+                  updatedAt: item.updatedAt || now,
+                  syncStatus: 'pending',
+                });
+
+                await addToSyncQueue('item', existenceCheck.existingId, 'update', {
+                  ...(item as Record<string, unknown>),
+                  source: 'import',
+                });
+
+                result.itemsOverwritten++;
+              }
+              break;
+
+            case 'rename': {
+              // Generate unique name and create new item
+              const uniqueName = generateUniqueItemName(item.name!, existingNames);
+              existingNames.add(uniqueName.toLowerCase());
+
+              const now = new Date();
+              const renamedItem = {
+                name: uniqueName,
+                barcode: item.barcode,
+                quantity: item.quantity!,
+                minQuantity: item.minQuantity,
+                category: item.category!,
+                location: item.location!,
+                notes: item.notes,
+                photos: item.photos || [],
+                createdAt: item.createdAt || now,
+                updatedAt: item.updatedAt || now,
+                syncStatus: 'pending' as const,
+              };
+
+              const newId = (await db.items.add(renamedItem)) as number;
+
+              await addToSyncQueue('item', newId, 'create', {
+                ...(renamedItem as unknown as Record<string, unknown>),
+                source: 'import',
+              });
+
+              result.itemsRenamed++;
+              break;
+            }
+          }
+        } else {
+          // New item - add to database
+          const now = new Date();
+          const newItem = {
+            name: item.name!,
+            barcode: item.barcode,
+            quantity: item.quantity!,
+            minQuantity: item.minQuantity,
+            category: item.category!,
+            location: item.location!,
+            notes: item.notes,
+            photos: item.photos || [],
+            createdAt: item.createdAt || now,
+            updatedAt: item.updatedAt || now,
+            syncStatus: 'pending' as const,
+          };
+
+          // If preserveIds is true and item has an ID, try to use it
+          let newId: number;
+          if (options.preserveIds && item.id) {
+            try {
+              newId = (await db.items.add({ ...newItem, id: item.id })) as number;
+            } catch {
+              // If ID already exists, let Dexie auto-generate a new one
+              newId = (await db.items.add(newItem)) as number;
+              result.warnings.push(
+                `Item "${item.name}" ID ${item.id} already exists, assigned new ID ${newId}`
+              );
+            }
+          } else {
+            newId = (await db.items.add(newItem)) as number;
+          }
+
+          existingNames.add(newItem.name.toLowerCase());
+
+          await addToSyncQueue('item', newId, 'create', {
+            ...(newItem as unknown as Record<string, unknown>),
+            source: 'import',
+          });
+
+          result.itemsImported++;
+        }
+      }
+    });
+
+    // Transaction completed successfully
+    result.success = true;
+  } catch (error) {
+    // Transaction rolled back automatically
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    result.errors.push(errorMessage);
+    result.success = false;
+  }
+
+  result.duration = Date.now() - startTime;
+  return result;
+}
