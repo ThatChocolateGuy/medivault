@@ -184,7 +184,13 @@ async function extractPhotosFromZIP(
         photoMap.set(itemId, []);
       }
       photoMap.get(itemId)!.push(base64);
-
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error(`Failed to process photo ${filename}:`, error);
+      }
+      // Continue processing other photos
+    } finally {
+      // Always increment progress counter, regardless of success/failure
       processed++;
 
       // Report progress
@@ -197,11 +203,6 @@ async function extractPhotosFromZIP(
           message: `Restoring photos (${processed}/${photoFiles.length})`,
         });
       }
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error(`Failed to process photo ${filename}:`, error);
-      }
-      // Continue processing other photos
     }
   }
 
@@ -363,6 +364,9 @@ export async function importInventoryFromCSV(
   }
 }
 
+// Maximum ZIP file size (100MB) to prevent denial of service attacks
+const MAX_ZIP_SIZE = 100 * 1024 * 1024;
+
 /**
  * Import inventory from ZIP file (with photos)
  */
@@ -374,6 +378,13 @@ export async function importInventoryFromZIP(
   const startTime = Date.now();
 
   try {
+    // Validate ZIP file size to prevent denial of service
+    if (zipFile.size > MAX_ZIP_SIZE) {
+      throw new Error(
+        `ZIP file size (${Math.round(zipFile.size / (1024 * 1024))}MB) exceeds ${MAX_ZIP_SIZE / (1024 * 1024)}MB limit`
+      );
+    }
+
     // Phase 1: Parsing ZIP (0-10%)
     if (onProgress) {
       onProgress({

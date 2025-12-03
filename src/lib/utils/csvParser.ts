@@ -96,24 +96,11 @@ const EXPECTED_HEADERS_ZIP = [
 ];
 
 /**
- * Parses a quoted CSV field according to RFC 4180
- * Handles:
- * - Double quotes escaped as ""
- * - Fields wrapped in quotes
- * - Unquoted fields
+ * Parses a CSV field by trimming whitespace.
+ * Note: Quote handling is done during character-by-character parsing in parseCSV().
  */
 export function parseCSVField(field: string): string {
-  const trimmed = field.trim();
-
-  // Check if field is quoted
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    // Remove surrounding quotes
-    const content = trimmed.slice(1, -1);
-    // Unescape doubled quotes
-    return content.replace(/""/g, '"');
-  }
-
-  return trimmed;
+  return field.trim();
 }
 
 /**
@@ -263,13 +250,18 @@ export function validateCSVStructure(data: ParsedCSVData): ValidationResult {
 export function validateItemData(
   row: string[],
   lineNumber: number,
-  isZIPFormat: boolean
+  _isZIPFormat: boolean
 ): ItemValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Map CSV columns to field names
-  const [id, name, , quantity, minQuantity, category, location] = row;
+  // Map CSV columns to field names with safe access
+  const id = row[0] ?? '';
+  const name = row[1] ?? '';
+  const quantity = row[3] ?? '';
+  const minQuantity = row[4] ?? '';
+  const category = row[5] ?? '';
+  const location = row[6] ?? '';
 
   // Required field: Name
   if (!name || name.trim().length === 0) {
@@ -325,9 +317,9 @@ export function validateItemData(
     }
   }
 
-  // Validate dates if present
-  const createdAt = row[isZIPFormat ? 9 : 9];
-  const updatedAt = row[isZIPFormat ? 10 : 10];
+  // Validate dates if present (indices 9 and 10 for both CSV and ZIP formats)
+  const createdAt = row[9] ?? '';
+  const updatedAt = row[10] ?? '';
 
   if (createdAt && createdAt.trim().length > 0) {
     const date = new Date(createdAt);
@@ -358,18 +350,18 @@ export function csvRowToItem(
   row: string[],
   isZIPFormat: boolean
 ): Partial<InventoryItem> {
-  // Destructure row with all fields (even if some are unused in initial parsing)
-  const id = row[0];
-  const name = row[1];
-  const barcode = row[2];
-  const quantity = row[3];
-  const minQuantity = row[4];
-  const category = row[5];
-  const location = row[6];
-  const notes = row[7];
-  const photoData = row[8];
-  const createdAt = row[9];
-  const updatedAt = row[10];
+  // Extract row fields with safe access
+  const id = row[0] ?? '';
+  const name = row[1] ?? '';
+  const barcode = row[2] ?? '';
+  const quantity = row[3] ?? '';
+  const minQuantity = row[4] ?? '';
+  const category = row[5] ?? '';
+  const location = row[6] ?? '';
+  const notes = row[7] ?? '';
+  const photoData = row[8] ?? '';
+  const createdAt = row[9] ?? '';
+  const updatedAt = row[10] ?? '';
 
   const item: Partial<InventoryItem> = {
     name: name.trim(),
