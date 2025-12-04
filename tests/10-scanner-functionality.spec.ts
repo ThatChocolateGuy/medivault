@@ -42,7 +42,7 @@ async function seedBarcodeTestData(page: Page) {
 }
 
 // Helper function to simulate barcode detection
-async function simulateBarcodeDetection(page: Page, barcode: string) {
+async function _simulateBarcodeDetection(page: Page, barcode: string) {
   // Click start scanning button
   await page.getByRole('button', { name: 'Start Scanning' }).click();
 
@@ -66,7 +66,7 @@ async function simulateBarcodeDetection(page: Page, barcode: string) {
 }
 
 // Helper to manually trigger item lookup (for testing without camera)
-async function manualItemLookup(page: Page, barcode: string) {
+async function _manualItemLookup(page: Page, barcode: string) {
   // Start scanning
   await page.getByRole('button', { name: 'Start Scanning' }).click();
   await page.waitForTimeout(500);

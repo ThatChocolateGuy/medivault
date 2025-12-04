@@ -146,7 +146,7 @@ export const unknownBarcodes = [
 /**
  * Helper function to seed the database with test items
  */
-export async function seedBarcodeTestItems(createItemFn: (item: any) => Promise<void>) {
+export async function seedBarcodeTestItems(createItemFn: (item: Omit<BarcodeTestItem, 'format'> & { photos: string[] }) => Promise<void>) {
   for (const item of barcodeTestData) {
     await createItemFn({
       name: item.name,

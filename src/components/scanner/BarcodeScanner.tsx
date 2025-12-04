@@ -338,11 +338,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
           await new Promise(resolve => setTimeout(resolve, 50));
           console.log('✅ Cached camera verified');
           return { deviceId: cachedDeviceId, fromCache: true };
-        } catch (err) {
+        } catch (_err) {
           console.warn('⚠️ Cached camera no longer available, finding new one');
           try {
             localStorage.removeItem(cacheKey);
-          } catch (err) {
+          } catch (_err) {
             console.warn('⚠️ Could not remove invalid cache entry');
           }
         }
@@ -518,7 +518,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
         // Request camera with explicit deviceId or fallback to facingMode
         const constraints: MediaStreamConstraints = {
-          video: bestCameraId ? {
+          video: (bestCameraId ? {
             deviceId: { exact: bestCameraId },
             width: { ideal: SCAN_RESOLUTION.width },
             height: { ideal: SCAN_RESOLUTION.height },
@@ -527,7 +527,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             focusMode: { ideal: 'continuous' },
             // Prefer close focus distance (0.2 = ~6-10 inches optimal for barcodes)
             focusDistance: { ideal: 0.2 },
-          } as any : {
+          } : {
             // Fallback if no camera with autofocus found
             facingMode: facingMode,
             width: { ideal: SCAN_RESOLUTION.width },
@@ -537,7 +537,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
             focusMode: { ideal: 'continuous' },
             // Prefer close focus distance (0.2 = ~6-10 inches optimal for barcodes)
             focusDistance: { ideal: 0.2 },
-          } as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          }) as any,
         };
 
         console.log('🎥 Requesting camera with constraints:', {
@@ -654,6 +655,7 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
                 { focusMode: 'continuous' },
                 { focusDistance: Math.max(minFocusDistance, 0.2) }
               ]
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any);
             console.log('✅ Continuous autofocus enabled');
           } catch (err) {
@@ -740,9 +742,11 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       initializingRef.current = false; // Reset immediately to allow re-init
 
       // Pause video first
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- videoRef is stable; accessing in cleanup is intentional
+      const videoElement = videoRef.current;
+      if (videoElement) {
+        videoElement.pause();
+        videoElement.srcObject = null;
         console.log('📹 Paused and cleared video source');
       }
 
@@ -762,7 +766,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
 
       console.log('✅ Cleanup complete');
     };
-  }, [facingMode, calculateOptimalFPS, startScanningLoop, findBestCamera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
 
   // Explicit cleanup function for immediate camera release
   const cleanupCamera = useCallback(() => {

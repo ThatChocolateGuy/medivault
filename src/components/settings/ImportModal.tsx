@@ -45,8 +45,10 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (successTimeoutRef.current) {
-        clearTimeout(successTimeoutRef.current);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- accessing ref in cleanup is intentional to get current timeout
+      const timeoutId = successTimeoutRef.current;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, []);

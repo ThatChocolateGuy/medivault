@@ -98,7 +98,7 @@ test.describe('Search and Filter Functionality', () => {
 
   test('should display item cards with all information', async ({ page }) => {
     // Check if items show all required information
-    const aspirinCard = page.getByText('Aspirin 500mg').locator('..');
+    const _aspirinCard = page.getByText('Aspirin 500mg').locator('..');
 
     // Should show quantity
     await expect(page.getByText(/Qty:/).first()).toBeVisible();
