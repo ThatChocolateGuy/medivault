@@ -688,3 +688,17 @@ export async function importItems(
   result.duration = Date.now() - startTime;
   return result;
 }
+
+// Data management operations
+
+/**
+ * Clear all inventory items from the database
+ * Preserves categories and locations to keep the app functional
+ * Clears the sync queue as well since all items are deleted
+ */
+export async function clearAllData(): Promise<void> {
+  await db.transaction('rw', [db.items, db.syncQueue], async () => {
+    await db.items.clear();
+    await db.syncQueue.clear();
+  });
+}
