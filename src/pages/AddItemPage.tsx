@@ -163,6 +163,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
         </div>
 
         <Input
+          name="name"
           label="Item Name"
           required
           value={formData.name}
@@ -171,6 +172,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
         />
 
         <Input
+          name="barcode"
           label="Barcode (optional)"
           value={formData.barcode}
           onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
@@ -179,6 +181,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
 
         <div className="grid grid-cols-2 gap-4">
           <Input
+            name="quantity"
             label="Quantity"
             type="number"
             min="0"
@@ -191,6 +194,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
           />
 
           <Input
+            name="minQuantity"
             label="Min Quantity"
             type="number"
             min="0"
@@ -207,6 +211,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
             Category <span className="text-red-500">*</span>
           </label>
           <select
+            name="category"
             required
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -230,6 +235,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
             Location <span className="text-red-500">*</span>
           </label>
           <select
+            name="location"
             required
             value={formData.location}
             onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -251,6 +257,7 @@ export function AddItemPage({ onNavigate, onSuccess, initialBarcode }: AddItemPa
         <div>
           <label className="block mb-2 text-sm font-medium text-gray-700">Notes</label>
           <textarea
+            name="notes"
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             placeholder="Additional notes..."

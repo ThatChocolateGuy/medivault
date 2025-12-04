@@ -63,7 +63,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5175,
+    port: 5173,
     allowedHosts: ['.ngrok-free.dev', '.localtunnel.me', '.loca.lt'],
     host: true, // Expose to network
     hmr: {

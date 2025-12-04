@@ -1,0 +1,4 @@
+ID,Name,Barcode,Quantity,Min Quantity,Category,Location,Notes,Photo Count,Created At,Updated At
+1,Test Aspirin,123456789012,50,10,Medications,Shelf A,Pain reliever for testing,0,2024-01-01T10:00:00.000Z,2024-01-01T10:00:00.000Z
+2,Test Bandages,987654321098,100,20,Supplies,Shelf B,Assorted bandages for testing,0,2024-01-02T10:00:00.000Z,2024-01-02T10:00:00.000Z
+3,Test Thermometer,456789123456,15,5,Equipment,Storage Room,Digital thermometer for testing,0,2024-01-03T10:00:00.000Z,2024-01-03T10:00:00.000Z

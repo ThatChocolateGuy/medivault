@@ -1,0 +1,3 @@
+ID,Name,Barcode,Quantity,Min Quantity,Category,Location,Notes,Photo Count,Created At,Updated At
+1,Aspirin,111111111111,75,10,Medications,Shelf A,Updated quantity,0,2024-01-01T10:00:00.000Z,2024-01-05T10:00:00.000Z
+100,New Test Item,999999999999,25,5,Supplies,Shelf B,Brand new item,0,2024-01-06T10:00:00.000Z,2024-01-06T10:00:00.000Z
