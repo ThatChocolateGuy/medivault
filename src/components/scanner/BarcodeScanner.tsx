@@ -741,8 +741,8 @@ export function BarcodeScanner({ onDetected, onClose }: BarcodeScannerProps) {
       detectedRef.current = false;
       initializingRef.current = false; // Reset immediately to allow re-init
 
-      // Pause video first - copy ref to local variable
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // Pause video first
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- videoRef is stable; accessing in cleanup is intentional
       const videoElement = videoRef.current;
       if (videoElement) {
         videoElement.pause();
