@@ -83,8 +83,14 @@ test.describe('Import Functionality', () => {
       const filePath = path.join(__dirname, 'fixtures', 'valid-import.csv');
       await page.setInputFiles('input[type="file"]', filePath);
 
+      // Wait for React state to update
+      await page.waitForTimeout(500);
+
       // Wait for file to be recognized
       await expect(page.getByText(/valid-import.csv/i)).toBeVisible();
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
 
       // Proceed to options
       await page.getByRole('button', { name: /next/i }).click();
@@ -115,6 +121,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'valid-import.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
       await page.getByRole('button', { name: 'Import', exact: true }).click({ force: true });
 
@@ -131,6 +140,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'invalid-headers.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
       await page.getByRole('button', { name: 'Import', exact: true }).click({ force: true });
 
@@ -143,6 +155,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'missing-fields.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
       await page.getByRole('button', { name: 'Import', exact: true }).click({ force: true });
 
@@ -161,6 +176,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'with-duplicates.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
 
       // Select "Skip" duplicate strategy (should be default)
@@ -191,6 +209,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'with-duplicates.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
 
       // Select "Overwrite" strategy
@@ -219,6 +240,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'with-duplicates.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
 
       // Select "Rename" strategy
@@ -243,6 +267,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'new-categories-locations.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
 
       // Enable auto-creation
@@ -270,6 +297,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'new-categories-locations.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
 
       // Make sure auto-create is disabled
@@ -290,6 +320,9 @@ test.describe('Import Functionality', () => {
       const filePath = path.join(__dirname, 'fixtures', 'valid-import.csv');
       await page.setInputFiles('input[type="file"]', filePath);
 
+      // Wait for React state to update
+      await page.waitForTimeout(500);
+
       // File name should be visible
       await expect(page.getByText(/valid-import.csv/i)).toBeVisible();
 
@@ -302,6 +335,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'valid-import.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
 
       // Cancel before options
       await page.getByRole('button', { name: /cancel/i }).click();
@@ -325,6 +361,9 @@ test.describe('Import Functionality', () => {
 
       const filePath = path.join(__dirname, 'fixtures', 'valid-import.csv');
       await page.setInputFiles('input[type="file"]', filePath);
+
+      // Wait for React state to update
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: /next/i }).click();
       await page.getByRole('button', { name: 'Import', exact: true }).click({ force: true });
 
