@@ -5,7 +5,8 @@ import { Cloud, Bell, Database, Info, FolderOpen, MapPin, ChevronRight, Upload }
 import { CategoryManager } from '../components/settings/CategoryManager';
 import { LocationManager } from '../components/settings/LocationManager';
 import { ImportModal } from '../components/settings/ImportModal';
-import { getAllItems } from '../lib/db/operations';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { getAllItems, clearAllData } from '../lib/db/operations';
 import {
   convertItemsToCSV,
   downloadCSV,
@@ -24,10 +25,13 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showLocationManager, setShowLocationManager] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingWithPhotos, setIsExportingWithPhotos] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState(false);
+  const [clearSuccess, setClearSuccess] = useState(false);
 
   const handleExportData = async () => {
     setIsExporting(true);
@@ -115,13 +119,42 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
     }
   };
 
+  const handleClearAllData = async () => {
+    setIsClearing(true);
+    setExportError(null);
+    setClearSuccess(false);
+
+    try {
+      await clearAllData();
+
+      // Show success message
+      setClearSuccess(true);
+      setTimeout(() => setClearSuccess(false), 3000);
+
+      // Close the confirmation dialog
+      setShowClearDataConfirm(false);
+    } catch (err) {
+      console.error('Clear all data failed:', err);
+      setExportError(
+        err instanceof Error ? err.message : 'Failed to clear data'
+      );
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
     <Layout title="Settings" activeNav="settings" onNavigate={onNavigate}>
       <div className="p-4 space-y-6">
-        {/* Export Status Messages */}
+        {/* Status Messages */}
         {exportSuccess && (
           <div className="p-3 bg-green-50 text-green-800 rounded-lg text-sm">
             Data exported successfully!
+          </div>
+        )}
+        {clearSuccess && (
+          <div className="p-3 bg-green-50 text-green-800 rounded-lg text-sm">
+            All inventory data cleared successfully!
           </div>
         )}
         {exportError && (
@@ -249,7 +282,10 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400" />
             </button>
-            <button className="flex items-center gap-3 w-full p-4 text-left text-red-600 active:bg-red-50">
+            <button
+              onClick={() => setShowClearDataConfirm(true)}
+              className="flex items-center gap-3 w-full p-4 text-left text-red-600 active:bg-red-50"
+            >
               <Database className="w-5 h-5" />
               <div className="flex-1">
                 <p className="font-medium">Clear All Data</p>
@@ -292,6 +328,19 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
           // Optionally refresh data or show a message
           // The component will handle its own success state
         }}
+      />
+
+      {/* Clear All Data Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showClearDataConfirm}
+        onClose={() => setShowClearDataConfirm(false)}
+        onConfirm={handleClearAllData}
+        title="Clear All Data?"
+        message="This will permanently delete all inventory items. Categories and locations will be preserved. This action cannot be undone."
+        confirmLabel="Clear All Data"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={isClearing}
       />
     </Layout>
   );
