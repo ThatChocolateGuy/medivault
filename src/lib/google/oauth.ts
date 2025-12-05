@@ -157,7 +157,11 @@ const secureStorage = {
 
   /**
    * Store tokens securely
-   * Note: In production, consider using IndexedDB with encryption
+   * Note: Tokens are stored in localStorage for persistence across sessions.
+   * While sessionStorage would be more secure, it doesn't persist when browser is closed,
+   * making the user experience poor for a mobile-first app.
+   * The app uses PKCE which protects against code interception attacks,
+   * and tokens are short-lived with automatic refresh.
    */
   setTokens(tokens: GoogleTokens): void {
     try {

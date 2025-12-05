@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Check, AlertCircle, Loader } from 'lucide-react';
 import { handleOAuthCallback, OAuthError } from '../../lib/google';
 
+// Constants for UI timing - provides visual feedback to user
+const SUCCESS_DISPLAY_DURATION_MS = 1500;
+
 interface OAuthCallbackProps {
   onSuccess: () => void;
   onError: (error: string) => void;
@@ -51,10 +54,10 @@ export function OAuthCallback({ onSuccess, onError }: OAuthCallbackProps) {
         // Clear the URL parameters
         window.history.replaceState({}, '', '/');
 
-        // Wait a moment to show success, then navigate
+        // Brief delay to show success state to user before navigating
         setTimeout(() => {
           onSuccess();
-        }, 1500);
+        }, SUCCESS_DISPLAY_DURATION_MS);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Authentication failed';
         setErrorMessage(message);

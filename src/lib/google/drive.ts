@@ -182,7 +182,7 @@ export async function getOrCreatePhotosFolder(): Promise<FolderInfo> {
 
 /**
  * Upload a photo to Google Drive
- * Accepts base64 data URL and converts to proper file upload
+ * Accepts base64 data URL and uploads using multipart request with base64 transfer encoding
  */
 export async function uploadPhoto(
   base64DataUrl: string,
@@ -201,16 +201,11 @@ export async function uploadPhoto(
   const mimeType = matches[1];
   const base64Data = matches[2];
 
-  // Convert base64 to Blob
-  const binaryData = atob(base64Data);
-  const bytes = new Uint8Array(binaryData.length);
-  for (let i = 0; i < binaryData.length; i++) {
-    bytes[i] = binaryData.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: mimeType });
-
   // Generate unique filename with item ID prefix
   const uniqueFileName = `item-${itemId}-${Date.now()}-${fileName}`;
+
+  // Calculate approximate file size from base64 (for return value)
+  const approximateSize = Math.floor((base64Data.length * 3) / 4);
 
   // Create file metadata
   const metadata = {
@@ -219,14 +214,14 @@ export async function uploadPhoto(
     mimeType,
   };
 
-  // Use multipart upload for files under 5MB
+  // Use multipart upload with base64 transfer encoding (efficient for Drive API)
   const boundary = '-------314159265358979323846';
   const delimiter = `\r\n--${boundary}\r\n`;
   const closeDelimiter = `\r\n--${boundary}--`;
 
   const metadataPart = delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata);
 
-  // Build multipart body
+  // Build multipart body - using base64 transfer encoding directly avoids costly conversion
   const bodyParts = [metadataPart, delimiter + `Content-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n` + base64Data + closeDelimiter];
 
   const response = await fetch(
@@ -259,7 +254,7 @@ export async function uploadPhoto(
     webContentLink: data.webContentLink,
     thumbnailLink: data.thumbnailLink,
     mimeType: data.mimeType,
-    size: parseInt(data.size) || blob.size,
+    size: parseInt(data.size) || approximateSize,
   };
 }
 

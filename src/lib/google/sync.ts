@@ -87,11 +87,20 @@ export interface SyncEventCallbacks {
 
 /**
  * Generate a unique device ID for this installation
+ * Uses cryptographically secure random generation
  */
 function getDeviceId(): string {
   let deviceId = localStorage.getItem('medivault_device_id');
   if (!deviceId) {
-    deviceId = `device-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Use crypto.randomUUID if available, fallback to getRandomValues
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      deviceId = `device-${crypto.randomUUID()}`;
+    } else {
+      // Fallback for older browsers
+      const array = new Uint8Array(16);
+      crypto.getRandomValues(array);
+      deviceId = `device-${Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+    }
     localStorage.setItem('medivault_device_id', deviceId);
   }
   return deviceId;
