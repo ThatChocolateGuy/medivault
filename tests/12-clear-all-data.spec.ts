@@ -72,9 +72,10 @@ async function clearAllItems(page: Page) {
   });
 }
 
-// Helper to click the Clear All Data button
+// Helper to click the Clear All Data button in Settings page
 async function clickClearAllDataButton(page: Page) {
-  await page.click('text=Clear All Data');
+  // Use a more specific selector that targets the button in the settings page
+  await page.locator('button').filter({ hasText: 'Clear All Data' }).first().click();
 }
 
 test.describe('Clear All Data Functionality', () => {
