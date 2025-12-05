@@ -166,11 +166,10 @@ export function ConfirmDialog({
             </Button>
             <Button
               type="button"
-              variant={variant === 'danger' ? 'primary' : 'primary'}
+              variant={variant === 'danger' ? 'danger' : 'primary'}
               fullWidth
               onClick={onConfirm}
               loading={isLoading}
-              className={variant === 'danger' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : ''}
             >
               {confirmLabel}
             </Button>
