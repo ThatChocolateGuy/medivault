@@ -28,7 +28,7 @@ This file provides guidance to GitHub Copilot when working with the MediVault co
 ```
 src/
 ├── components/
-│   ├── common/          # Reusable UI components (Button, Input, Modal, etc.)
+│   ├── common/          # Reusable UI components (Button, Input, Modal, ConfirmDialog, etc.)
 │   ├── items/           # Inventory item components (ItemCard)
 │   ├── layout/          # Header, BottomNav, Layout
 │   ├── scanner/         # Barcode scanner (ZXing-JS)
@@ -91,6 +91,7 @@ npx prettier --write .
 - Use Dexie.js transactions for atomic operations
 - Add operations to sync queue for future Google Sheets sync
 - Handle duplicate key errors gracefully (for React StrictMode)
+- Use `clearAllData()` to clear items while preserving categories/locations
 
 ### Error Handling
 - Wrap async operations in try-catch
@@ -107,6 +108,7 @@ npx prettier --write .
 - `src/lib/utils/import.ts` - ZIP import utilities
 - `src/lib/utils/export.ts` - ZIP export utilities
 - `src/components/scanner/BarcodeScanner.tsx` - Barcode scanner with ZXing-JS
+- `src/components/common/ConfirmDialog.tsx` - ARIA-compliant confirmation dialog
 - `docs/BARCODE_SCANNER.md` - Barcode scanner documentation
 
 ## Database Schema
