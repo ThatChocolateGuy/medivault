@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { type NavItem } from '../components/layout/BottomNav';
-import { Cloud, Bell, Database, Info, FolderOpen, MapPin, ChevronRight, Upload } from 'lucide-react';
+import { Bell, Database, Info, FolderOpen, MapPin, ChevronRight, Upload } from 'lucide-react';
 import { CategoryManager } from '../components/settings/CategoryManager';
 import { LocationManager } from '../components/settings/LocationManager';
 import { ImportModal } from '../components/settings/ImportModal';
+import { GoogleSyncPanel } from '../components/settings/GoogleSyncPanel';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { getAllItems, clearAllData } from '../lib/db/operations';
 import {
@@ -166,16 +167,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
         {/* Sync Settings */}
         <section>
           <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase">Sync</h2>
-          <div className="bg-white rounded-lg border border-gray-200 divide-y">
-            <button className="flex items-center gap-3 w-full p-4 text-left active:bg-gray-50">
-              <Cloud className="w-5 h-5 text-gray-600" />
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">Google Sheets Sync</p>
-                <p className="text-sm text-gray-500">Connect your Google account</p>
-              </div>
-              <span className="text-xs text-gray-400">Not connected</span>
-            </button>
-          </div>
+          <GoogleSyncPanel />
         </section>
 
         {/* Notifications */}

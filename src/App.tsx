@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type NavItem } from './components/layout/BottomNav';
 import { HomePage } from './pages/HomePage';
 import { AddItemPage } from './pages/AddItemPage';
 import { ScannerPage } from './pages/ScannerPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ItemDetailPage } from './pages/ItemDetailPage';
+import { OAuthCallback } from './components/settings/OAuthCallback';
 import { initializeDatabase, deduplicateDatabase, type InventoryItem } from './lib/db';
 
 function App() {
@@ -12,6 +13,14 @@ function App() {
   const [initialized, setInitialized] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [initialBarcode, setInitialBarcode] = useState<string | undefined>(undefined);
+  const [oauthHandled, setOauthHandled] = useState(false);
+
+  // Check if this is an OAuth callback (computed once on mount)
+  const isOAuthCallback = useMemo(() => {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    return path === '/auth/callback' || params.has('code');
+  }, []);
 
   // Initialize database on mount
   useEffect(() => {
@@ -69,6 +78,23 @@ function App() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  // Handle OAuth callback
+  if (isOAuthCallback && !oauthHandled) {
+    return (
+      <OAuthCallback
+        onSuccess={() => {
+          setOauthHandled(true);
+          setCurrentPage('settings');
+        }}
+        onError={(error) => {
+          console.error('OAuth error:', error);
+          setOauthHandled(true);
+          setCurrentPage('settings');
+        }}
+      />
     );
   }
 
