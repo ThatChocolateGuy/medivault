@@ -697,8 +697,13 @@ export async function importItems(
  * Clears the sync queue as well since all items are deleted
  */
 export async function clearAllData(): Promise<void> {
-  await db.transaction('rw', [db.items, db.syncQueue], async () => {
-    await db.items.clear();
-    await db.syncQueue.clear();
-  });
+  try {
+    await db.transaction('rw', [db.items, db.syncQueue], async () => {
+      await db.items.clear();
+      await db.syncQueue.clear();
+    });
+  } catch (error) {
+    console.error('Failed to clear all data:', error);
+    throw new Error('Failed to clear all data. Please try again.');
+  }
 }
